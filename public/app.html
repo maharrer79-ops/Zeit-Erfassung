@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZeitWerk – App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand"><span class="dot"></span> ZeitWerk</div>
+      <div class="user-box">
+        <div style="text-align:right">
+          <div class="user-name" id="user-name">…</div>
+          <div class="user-mail" id="user-mail"></div>
+        </div>
+        <div class="avatar" id="avatar">?</div>
+        <button class="btn btn-outline btn-sm" id="logout-btn">Abmelden</button>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- Statistik -->
+      <div class="stats">
+        <div class="stat"><div class="num" id="stat-today">0,0 h</div><div class="lbl">Heute</div></div>
+        <div class="stat"><div class="num" id="stat-week">0,0 h</div><div class="lbl">Diese Woche</div></div>
+        <div class="stat"><div class="num" id="stat-total">0,0 h</div><div class="lbl">Gesamt</div></div>
+      </div>
+
+      <div class="grid">
+        <!-- Timer -->
+        <div class="card">
+          <h3>⏱️ Timer</h3>
+          <div class="timer-display" id="timer">00:00:00</div>
+          <div class="timer-meta" id="timer-meta">Bereit zum Einstempeln</div>
+          <div class="timer-fields">
+            <select class="input" id="timer-project"><option value="">Ohne Projekt</option></select>
+            <input class="input" id="timer-desc" type="text" placeholder="Woran arbeitest du?" />
+          </div>
+          <div class="timer-controls">
+            <button class="btn btn-success" id="start-btn">▶ Einstempeln</button>
+            <button class="btn btn-danger" id="stop-btn" style="display:none">■ Ausstempeln</button>
+          </div>
+        </div>
+
+        <!-- Manueller Eintrag + Projekte -->
+        <div class="card">
+          <h3>✏️ Manueller Eintrag</h3>
+          <form id="manual-form" class="form-inline">
+            <label class="field full">Beschreibung
+              <input class="input" name="description" type="text" placeholder="z.B. Meeting" />
+            </label>
+            <label class="field">Projekt
+              <select class="input" name="project_id" id="manual-project"><option value="">Ohne Projekt</option></select>
+            </label>
+            <label class="field">Datum
+              <input class="input" name="date" type="date" required />
+            </label>
+            <label class="field">Von
+              <input class="input" name="start" type="time" required />
+            </label>
+            <label class="field">Bis
+              <input class="input" name="end" type="time" required />
+            </label>
+            <button type="submit" class="btn btn-primary full">Eintrag hinzufügen</button>
+          </form>
+
+          <h3 style="margin-top:22px">📁 Projekte</h3>
+          <form id="project-form" style="display:flex; gap:8px">
+            <input class="input" id="project-name" placeholder="Neues Projekt…" />
+            <input type="color" id="project-color" value="#4f46e5" style="width:46px; padding:4px; border:1px solid var(--border); border-radius:9px" />
+            <button class="btn btn-outline btn-sm" type="submit">+</button>
+          </form>
+          <div class="chip-list" id="project-chips"></div>
+        </div>
+      </div>
+
+      <!-- Eintragsliste -->
+      <div class="section-title">
+        <h2>Deine Zeiten</h2>
+        <a class="btn btn-outline btn-sm" href="/api/entries/export.csv">📤 CSV exportieren</a>
+      </div>
+      <div class="card" style="padding:6px 22px">
+        <table>
+          <thead>
+            <tr><th>Datum</th><th>Von–Bis</th><th>Projekt</th><th>Beschreibung</th><th class="dur">Dauer</th><th></th></tr>
+          </thead>
+          <tbody id="entries-body">
+            <tr><td colspan="6" class="empty">Wird geladen…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit-Modal -->
+  <div class="modal-backdrop" id="edit-modal">
+    <div class="modal">
+      <h2>Eintrag bearbeiten</h2>
+      <div class="form-msg" id="edit-msg"></div>
+      <form id="edit-form">
+        <input type="hidden" name="id" />
+        <label class="field">Beschreibung
+          <input class="input" name="description" type="text" />
+        </label>
+        <label class="field">Projekt
+          <select class="input" name="project_id" id="edit-project"><option value="">Ohne Projekt</option></select>
+        </label>
+        <div class="form-inline">
+          <label class="field">Datum
+            <input class="input" name="date" type="date" required />
+          </label>
+          <label class="field">Von
+            <input class="input" name="start" type="time" required />
+          </label>
+          <label class="field">Bis
+            <input class="input" name="end" type="time" required />
+          </label>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:8px">
+          <button type="button" class="btn btn-outline" id="edit-cancel" style="flex:1">Abbrechen</button>
+          <button type="submit" class="btn btn-primary" style="flex:1">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/js/app.js"></script>
+</body>
+</html>

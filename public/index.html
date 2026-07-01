@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZeitWerk – Zeiterfassung fürs Team</title>
+  <meta name="description" content="Einfache Zeiterfassung für dich und dein Team – getrennte Accounts, Timer, Projekte und CSV-Export." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span> ZeitWerk</div>
+      <div class="nav-links">
+        <button class="btn btn-ghost" data-auth="login">Anmelden</button>
+        <button class="btn btn-light" data-auth="register">Kostenlos starten</button>
+      </div>
+    </nav>
+
+    <div class="hero-inner">
+      <div>
+        <h1>Zeiterfassung, die dein <span>Team</span> wirklich nutzt.</h1>
+        <p class="lead">
+          Stempel dich mit einem Klick ein, ordne Zeiten Projekten zu und exportiere
+          alles für die Abrechnung. Jede:r im Team arbeitet mit dem <b>eigenen Account</b> –
+          getrennt und übersichtlich.
+        </p>
+        <div class="hero-cta">
+          <button class="btn btn-light" data-auth="register">Jetzt Account erstellen →</button>
+          <button class="btn btn-ghost" data-auth="login">Ich habe schon einen Account</button>
+        </div>
+        <div class="badges">
+          <div><b>1‑Klick</b> Ein- & Ausstempeln</div>
+          <div><b>∞</b> Projekte & Kolleg:innen</div>
+          <div><b>CSV</b> Export für die Abrechnung</div>
+        </div>
+      </div>
+
+      <div class="mockup" aria-hidden="true">
+        <div class="timer-face" id="demo-timer">02:14:37</div>
+        <div class="bar fill" style="width:70%"></div>
+        <div class="bar" style="width:100%"></div>
+        <div class="row"><span>🟣 Kundenprojekt Meyer</span><span>3,5 h</span></div>
+        <div class="row"><span>🟢 Interne Doku</span><span>1,2 h</span></div>
+        <div class="row"><span>🔵 Support</span><span>0,8 h</span></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="features">
+    <h2>Alles drin, nichts kompliziert</h2>
+    <p class="sub">Gebaut für kleine Teams, die ihre Arbeitszeit sauber dokumentieren wollen.</p>
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="ic">👥</div>
+        <h3>Getrennte Accounts</h3>
+        <p>Du und deine Kolleg:innen meldet euch mit eigenen Zugängen an – jede:r sieht nur die eigenen Zeiten.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">⏱️</div>
+        <h3>Timer & Stoppuhr</h3>
+        <p>Ein Klick zum Einstempeln, einer zum Ausstempeln. Der laufende Timer bleibt immer sichtbar.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">📁</div>
+        <h3>Projekte & Kategorien</h3>
+        <p>Ordne jede Zeit einem Projekt oder Kunden zu und behalte den Überblick.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">✏️</div>
+        <h3>Manuelle Einträge</h3>
+        <p>Vergessen einzustempeln? Trage Zeiten einfach nachträglich ein und bearbeite sie.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">📊</div>
+        <h3>Auswertung</h3>
+        <p>Heute, diese Woche, gesamt – deine Stunden immer auf einen Blick.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">📤</div>
+        <h3>CSV-Export</h3>
+        <p>Exportiere deine Zeiten mit einem Klick – perfekt für Excel und die Abrechnung.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    © <span id="year"></span> ZeitWerk · Zeiterfassung für Teams
+  </footer>
+
+  <!-- Auth-Modal -->
+  <div class="modal-backdrop" id="auth-modal">
+    <div class="modal">
+      <h2 id="auth-title">Willkommen zurück</h2>
+      <div class="tabs">
+        <button data-tab="login" class="active">Anmelden</button>
+        <button data-tab="register">Registrieren</button>
+      </div>
+      <div class="form-msg" id="auth-msg"></div>
+      <form id="auth-form">
+        <label class="field" id="name-field">Name
+          <input type="text" name="name" autocomplete="name" placeholder="Max Mustermann" />
+        </label>
+        <label class="field">E-Mail
+          <input type="email" name="email" autocomplete="email" placeholder="max@firma.de" required />
+        </label>
+        <label class="field">Passwort
+          <input type="password" name="password" autocomplete="current-password" placeholder="••••••••" required />
+        </label>
+        <button type="submit" class="btn btn-primary" style="width:100%">Los geht's</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/landing.js"></script>
+</body>
+</html>
