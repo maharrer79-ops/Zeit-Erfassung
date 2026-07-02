@@ -14,6 +14,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(cookieParser());
 
+// Health-Check (fuer Docker / Monitoring / Reverse-Proxy)
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
 // API
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);

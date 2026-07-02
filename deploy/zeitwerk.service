@@ -1,0 +1,36 @@
+# ZeitWerk – systemd Service (Alternative zu pm2, kein globales npm-Paket noetig)
+# Ablage auf dem VPS: /etc/systemd/system/zeitwerk.service
+# Danach:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now zeitwerk
+#   sudo systemctl status zeitwerk        # Status pruefen
+#   sudo journalctl -u zeitwerk -f        # Logs live ansehen
+#
+# Passe WorkingDirectory, User und die Environment-Werte unten an deine
+# Installation an. JWT_SECRET UNBEDINGT durch einen eigenen Zufallswert ersetzen:
+#   openssl rand -hex 32
+
+[Unit]
+Description=ZeitWerk Zeiterfassung
+After=network.target
+
+[Service]
+Type=simple
+User=zeitwerk
+WorkingDirectory=/opt/zeitwerk
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=5
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=JWT_SECRET=BITTE-AENDERN-openssl-rand-hex-32
+Environment=DB_PATH=/opt/zeitwerk/data.sqlite
+
+# Etwas Haertung
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
