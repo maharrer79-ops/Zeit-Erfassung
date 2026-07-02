@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZeitWerk – Monatsblatt</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header no-print">
+      <div class="brand"><span class="dot"></span> ZeitWerk</div>
+      <div class="user-box">
+        <a class="btn btn-outline btn-sm" href="/app">← Zur App</a>
+        <button class="btn btn-outline btn-sm" id="logout-btn">Abmelden</button>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- Steuerung -->
+      <div class="sheet-controls no-print">
+        <div class="month-nav">
+          <button type="button" id="month-prev" title="Vorheriger Monat">‹</button>
+          <span id="month-label">–</span>
+          <button type="button" id="month-next" title="Nächster Monat">›</button>
+        </div>
+        <label class="soll-field">Soll pro Arbeitstag (Std.)
+          <input type="number" id="soll-input" min="0" max="24" step="0.25" value="8" />
+        </label>
+        <div class="spacer"></div>
+        <button class="btn btn-outline btn-sm" id="print-btn">🖨️ Drucken / PDF</button>
+        <a class="btn btn-outline btn-sm" id="csv-btn" href="/api/entries/export.csv">📤 CSV</a>
+      </div>
+
+      <!-- Das druckbare Blatt -->
+      <div class="sheet card" id="sheet">
+        <div class="sheet-head">
+          <h1 id="sheet-title">Monatsübersicht</h1>
+          <div class="sheet-sub" id="sheet-sub"></div>
+        </div>
+
+        <table class="sheet-table">
+          <thead>
+            <tr>
+              <th class="c-date">Datum</th>
+              <th class="c-day">Tag</th>
+              <th class="c-desc">Beschreibung</th>
+              <th class="c-time">Von</th>
+              <th class="c-time">Bis</th>
+              <th class="c-num">Std.</th>
+              <th class="c-num">Soll</th>
+              <th class="c-num">Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="sheet-body"></tbody>
+          <tfoot>
+            <tr class="sum-row">
+              <td colspan="5">Summe Monat</td>
+              <td class="c-num" id="sum-ist">0,00</td>
+              <td class="c-num" id="sum-soll">0,00</td>
+              <td class="c-num" id="sum-saldo">0,00</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="sheet-legend">
+          <span><b>Std.</b> = tatsächlich gearbeitete Zeit &nbsp;·&nbsp;
+          <b>Soll</b> = Vorgabe pro Arbeitstag (Mo–Fr) &nbsp;·&nbsp;
+          <b>Saldo</b> = Std. − Soll (Gleitzeit)</span>
+          <span class="hint">Hinweis: Feiertage und Urlaub werden nicht automatisch erkannt –
+          bei Bedarf trage sie als manuelle Einträge nach.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast no-print" id="toast"></div>
+  <script src="/js/monat.js"></script>
+</body>
+</html>

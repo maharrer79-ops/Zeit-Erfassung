@@ -319,7 +319,11 @@ function bindEvents() {
         start_ts: combineLocal(f.date.value, f.start.value),
         end_ts: combineLocal(f.date.value, f.end.value),
       });
+      // Felder für den nächsten Eintrag zurücksetzen (Datum & Projekt bleiben)
       f.description.value = '';
+      f.start.value = '';
+      f.end.value = '';
+      f.start.focus();
       await loadEntries();
       toast('Eintrag hinzugefügt');
     } catch (e) { toast(e.message, true); }

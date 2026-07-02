@@ -30,6 +30,11 @@ app.get('/app', (req, res) => {
   res.sendFile(join(__dirname, '..', 'public', 'app.html'));
 });
 
+// Monatsblatt
+app.get('/monat', (req, res) => {
+  res.sendFile(join(__dirname, '..', 'public', 'monat.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`Zeiterfassung laeuft auf http://localhost:${PORT}`);
 });

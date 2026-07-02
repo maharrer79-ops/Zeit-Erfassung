@@ -226,3 +226,45 @@ td.dur { font-variant-numeric: tabular-nums; font-weight: 600; }
 .bar-fill { height: 100%; border-radius: 6px; background: var(--primary); transition: width .3s ease; }
 .row-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
 .overview-empty { color: var(--muted); text-align: center; padding: 24px 0; }
+
+/* ---------- Monatsblatt ---------- */
+.sheet-controls { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.sheet-controls .spacer { flex: 1; }
+.soll-field { font-size: 13px; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 8px; }
+.soll-field input { width: 80px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; }
+
+.sheet { padding: 28px; }
+.sheet-head { border-bottom: 2px solid var(--text); padding-bottom: 12px; margin-bottom: 16px; }
+.sheet-head h1 { font-size: 22px; letter-spacing: -0.3px; }
+.sheet-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+.sheet-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.sheet-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .4px; padding: 8px 8px; border-bottom: 1px solid var(--border); }
+.sheet-table td { padding: 7px 8px; border-bottom: 1px solid #eef2f6; }
+.sheet-table .c-num, .sheet-table th.c-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheet-table .c-time, .sheet-table th.c-time { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheet-table .c-date { white-space: nowrap; color: var(--muted); }
+.sheet-table .c-day { font-weight: 600; }
+.sheet-table tr.weekend td { background: #f8fafc; color: var(--muted); }
+.sheet-table tr.today td { background: #eef2ff; }
+.sheet-table td.pos { color: var(--success); font-weight: 600; }
+.sheet-table td.neg { color: var(--danger); font-weight: 600; }
+.sheet-table tfoot .sum-row td { border-top: 2px solid var(--text); border-bottom: none;
+  font-weight: 800; font-size: 15px; padding-top: 12px; }
+.sheet-table tfoot .sum-row td:first-child { text-transform: uppercase; letter-spacing: .4px; font-size: 13px; }
+
+.sheet-legend { margin-top: 16px; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.sheet-legend .hint { font-style: italic; }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .app-shell, .container { display: block; padding: 0; margin: 0; max-width: none; }
+  .sheet { box-shadow: none; border: none; padding: 0; }
+  .sheet-table tr.weekend td { background: #f2f2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet-table tr.today td { background: transparent !important; }
+  .sheet-table td.pos { color: #000; }
+  .sheet-table td.neg { color: #000; }
+  @page { margin: 1.4cm; }
+}
