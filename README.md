@@ -12,6 +12,7 @@ es eine **Landingpage** und die **App**.
 - 📁 **Projekte** – Zeiten Projekten/Kunden zuordnen (mit Farbe)
 - 📊 **Auswertung** – Stunden für Heute, diese Woche und Gesamt
 - 📤 **CSV-Export** – Zeiten für Excel / die Abrechnung exportieren
+- 🔒 **Account-Limit** – maximale Zahl an Registrierungen begrenzbar (Standard 30, per `MAX_USERS`)
 
 ## Technik
 

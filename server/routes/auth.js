@@ -5,8 +5,18 @@ import { signToken, setAuthCookie, clearAuthCookie, requireAuth } from '../auth.
 
 const router = Router();
 
+// Maximale Anzahl an Accounts (Standard 30, per Umgebungsvariable anpassbar)
+const MAX_USERS = Math.max(1, parseInt(process.env.MAX_USERS ?? '30', 10) || 30);
+
 // Registrierung – legt einen neuen, getrennten Account an
 router.post('/register', (req, res) => {
+  const userCount = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+  if (userCount >= MAX_USERS) {
+    return res.status(403).json({
+      error: `Die maximale Anzahl an Accounts (${MAX_USERS}) ist erreicht. Bitte wende dich an den Administrator.`,
+    });
+  }
+
   const name = (req.body?.name || '').trim();
   const email = (req.body?.email || '').trim().toLowerCase();
   const password = req.body?.password || '';
