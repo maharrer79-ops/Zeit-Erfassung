@@ -123,7 +123,7 @@ function render() {
     const von = entries.length ? fmtTime(entries[0].start_ts) : '';
     const bis = entries.length ? fmtTime(entries[entries.length - 1].end_ts) : '';
     const desc = entries.length
-      ? [...new Set(entries.map((e) => e.description || e.project_name).filter(Boolean))].join(', ')
+      ? [...new Set(entries.map((e) => e.description || e.kind_label || e.project_name).filter(Boolean))].join(', ')
       : (isWeekend ? 'Wochenende' : (soll ? '—' : ''));
 
     const cls = [isWeekend ? 'weekend' : '', dayNum === todayNum ? 'today' : ''].filter(Boolean).join(' ');

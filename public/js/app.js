@@ -73,6 +73,9 @@ async function init() {
   // Standard-Datum im Formular = heute
   $('manual-form').date.value = toDateInput(new Date().toISOString());
 
+  // Buchungsart-Auswahl fuellen (Standard: Kommen/Gehen)
+  fillKindSelect($('manual-kind'));
+
   await Promise.all([loadProjects(), loadEntries(), loadRunning()]);
   bindEvents();
 }
@@ -206,7 +209,7 @@ function renderEntries() {
   const body = $('entries-body');
   const done = state.entries.filter((e) => e.end_ts);
   if (!done.length) {
-    body.innerHTML = '<tr><td colspan="6" class="empty">Noch keine Zeiten erfasst. Stemple dich ein oder trage manuell ein.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="empty">Noch keine Zeiten erfasst. Stemple dich ein oder trage manuell ein.</td></tr>';
     return;
   }
   body.innerHTML = done.map((e) => {
@@ -217,6 +220,7 @@ function renderEntries() {
     return `<tr>
       <td>${fmtDate(e.start_ts)}</td>
       <td>${fmtTime(e.start_ts)}–${fmtTime(e.end_ts)}</td>
+      <td>${escapeHtml(e.kind_label || '')} <span style="color:var(--muted)">${e.kind_code || ''}</span></td>
       <td>${proj}</td>
       <td>${escapeHtml(e.description) || '<span style="color:var(--muted)">–</span>'}</td>
       <td class="dur">${fmtDuration(dur)}</td>
@@ -316,10 +320,11 @@ function bindEvents() {
       await api.post('/api/entries', {
         project_id: f.project_id.value || null,
         description: f.description.value,
+        kind_code: f.kind_code.value,
         start_ts: combineLocal(f.date.value, f.start.value),
         end_ts: combineLocal(f.date.value, f.end.value),
       });
-      // Felder für den nächsten Eintrag zurücksetzen (Datum & Projekt bleiben)
+      // Felder für den nächsten Eintrag zurücksetzen (Datum, Projekt & Buchungsart bleiben)
       f.description.value = '';
       f.start.value = '';
       f.end.value = '';
@@ -376,6 +381,7 @@ function openEdit(id) {
   const f = $('edit-form');
   f.id.value = e.id;
   f.description.value = e.description || '';
+  fillKindSelect($('edit-kind'), e.kind_code);
   $('edit-project').innerHTML = projectOptions(e.project_id);
   f.date.value = toDateInput(e.start_ts);
   f.start.value = toTimeInput(e.start_ts);
@@ -392,6 +398,7 @@ async function saveEdit(ev) {
     await api.put(`/api/entries/${f.id.value}`, {
       project_id: f.project_id.value || null,
       description: f.description.value,
+      kind_code: f.kind_code.value,
       start_ts: combineLocal(f.date.value, f.start.value),
       end_ts: combineLocal(f.date.value, f.end.value),
     });

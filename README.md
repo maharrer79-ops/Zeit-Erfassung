@@ -9,6 +9,7 @@ es eine **Landingpage** und die **App**.
 - 👥 **Getrennte Accounts** – Registrierung & Login pro Person, sichere Passwörter (bcrypt), Session per Cookie (JWT)
 - ⏱️ **Timer** – Ein- und Ausstempeln mit einem Klick, laufender Timer immer sichtbar
 - ✏️ **Manuelle Einträge** – Zeiten nachtragen und jederzeit bearbeiten/löschen
+- 🏷️ **Buchungsarten** – manuelle Einträge einer Kategorie zuordnen (z. B. Tarifurlaub, Dienstreise, mobiles Arbeiten …); beim Stempeln immer „Kommen/Gehen"
 - 📁 **Projekte** – Zeiten Projekten/Kunden zuordnen (mit Farbe)
 - 📊 **Auswertung** – Stunden für Heute, diese Woche und Gesamt
 - 📤 **CSV-Export** – Zeiten für Excel / die Abrechnung exportieren

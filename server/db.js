@@ -32,6 +32,8 @@ db.exec(`
     user_id     INTEGER NOT NULL,
     project_id  INTEGER,
     description TEXT    NOT NULL DEFAULT '',
+    kind_code   TEXT    NOT NULL DEFAULT '0010',
+    kind_label  TEXT    NOT NULL DEFAULT 'Kommen/Gehen',
     start_ts    TEXT    NOT NULL,
     end_ts      TEXT,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
@@ -42,5 +44,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_entries_user  ON entries(user_id);
   CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 `);
+
+// Migration: Buchungsart-Spalten fuer bereits bestehende Datenbanken ergaenzen
+const entryCols = db.prepare('PRAGMA table_info(entries)').all().map((c) => c.name);
+if (!entryCols.includes('kind_code')) {
+  db.exec("ALTER TABLE entries ADD COLUMN kind_code TEXT NOT NULL DEFAULT '0010'");
+}
+if (!entryCols.includes('kind_label')) {
+  db.exec("ALTER TABLE entries ADD COLUMN kind_label TEXT NOT NULL DEFAULT 'Kommen/Gehen'");
+}
 
 export default db;

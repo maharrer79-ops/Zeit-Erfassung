@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth } from '../auth.js';
+import { resolveKind, DEFAULT_KIND } from '../booking-types.js';
 
 const router = Router();
 router.use(requireAuth);
 
 const SELECT_ENTRY = `
-  SELECT e.id, e.project_id, e.description, e.start_ts, e.end_ts, e.created_at,
+  SELECT e.id, e.project_id, e.description, e.kind_code, e.kind_label,
+         e.start_ts, e.end_ts, e.created_at,
          p.name AS project_name, p.color AS project_color
   FROM entries e
   LEFT JOIN projects p ON p.id = e.project_id
@@ -43,9 +45,10 @@ router.post('/start', (req, res) => {
   const description = (req.body?.description || '').trim();
   const start_ts = new Date().toISOString();
 
+  // Beim Stempeln immer "Kommen/Gehen" (normale Anwesenheit)
   const info = db
-    .prepare('INSERT INTO entries (user_id, project_id, description, start_ts) VALUES (?, ?, ?, ?)')
-    .run(req.user.id, project_id, description, start_ts);
+    .prepare('INSERT INTO entries (user_id, project_id, description, kind_code, kind_label, start_ts) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(req.user.id, project_id, description, DEFAULT_KIND.code, DEFAULT_KIND.label, start_ts);
   const entry = db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(info.lastInsertRowid);
   res.status(201).json({ entry });
 });
@@ -65,7 +68,7 @@ router.post('/stop', (req, res) => {
 
 // Manuellen Eintrag anlegen
 router.post('/', (req, res) => {
-  const { project_id = null, description = '', start_ts, end_ts } = req.body || {};
+  const { project_id = null, description = '', kind_code, start_ts, end_ts } = req.body || {};
   if (!isValidDate(start_ts) || !isValidDate(end_ts)) {
     return res.status(400).json({ error: 'Start- und Endzeit muessen gueltig sein' });
   }
@@ -73,9 +76,10 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Die Endzeit muss nach der Startzeit liegen' });
   }
 
+  const kind = resolveKind(kind_code);
   const info = db
-    .prepare('INSERT INTO entries (user_id, project_id, description, start_ts, end_ts) VALUES (?, ?, ?, ?, ?)')
-    .run(req.user.id, project_id || null, String(description).trim(),
+    .prepare('INSERT INTO entries (user_id, project_id, description, kind_code, kind_label, start_ts, end_ts) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(req.user.id, project_id || null, String(description).trim(), kind.code, kind.label,
          new Date(start_ts).toISOString(), new Date(end_ts).toISOString());
   const entry = db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(info.lastInsertRowid);
   res.status(201).json({ entry });
@@ -92,6 +96,9 @@ router.put('/:id', (req, res) => {
   const description = req.body?.description !== undefined ? String(req.body.description).trim() : existing.description;
   const start_ts = req.body?.start_ts ?? existing.start_ts;
   const end_ts = req.body?.end_ts !== undefined ? req.body.end_ts : existing.end_ts;
+  const kind = req.body?.kind_code !== undefined
+    ? resolveKind(req.body.kind_code)
+    : { code: existing.kind_code, label: existing.kind_label };
 
   if (!isValidDate(start_ts)) return res.status(400).json({ error: 'Startzeit ungueltig' });
   if (end_ts && !isValidDate(end_ts)) return res.status(400).json({ error: 'Endzeit ungueltig' });
@@ -99,8 +106,8 @@ router.put('/:id', (req, res) => {
     return res.status(400).json({ error: 'Die Endzeit muss nach der Startzeit liegen' });
   }
 
-  db.prepare('UPDATE entries SET project_id = ?, description = ?, start_ts = ?, end_ts = ? WHERE id = ?')
-    .run(project_id || null, description, new Date(start_ts).toISOString(),
+  db.prepare('UPDATE entries SET project_id = ?, description = ?, kind_code = ?, kind_label = ?, start_ts = ?, end_ts = ? WHERE id = ?')
+    .run(project_id || null, description, kind.code, kind.label, new Date(start_ts).toISOString(),
          end_ts ? new Date(end_ts).toISOString() : null, existing.id);
   const entry = db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(existing.id);
   res.json({ entry });
@@ -122,7 +129,7 @@ router.get('/export.csv', (req, res) => {
     .all(req.user.id);
 
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const header = ['Datum', 'Start', 'Ende', 'Dauer (Std)', 'Projekt', 'Beschreibung'];
+  const header = ['Datum', 'Start', 'Ende', 'Dauer (Std)', 'Buchungsart', 'Code', 'Projekt', 'Beschreibung'];
   const lines = [header.map(esc).join(';')];
 
   for (const r of rows) {
@@ -134,6 +141,8 @@ router.get('/export.csv', (req, res) => {
       start.toLocaleTimeString('de-DE'),
       end.toLocaleTimeString('de-DE'),
       hours,
+      r.kind_label || '',
+      r.kind_code || '',
       r.project_name || '',
       r.description || '',
     ].map(esc).join(';'));
