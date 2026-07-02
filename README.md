@@ -7,7 +7,7 @@ es eine **Landingpage** und die **App**.
 ## Funktionen
 
 - 👥 **Getrennte Accounts** – Registrierung & Login pro Person, sichere Passwörter (bcrypt), Session per Cookie (JWT)
-- ⏱️ **Timer** – Ein- und Ausstempeln mit einem Klick, laufender Timer immer sichtbar
+- ⏱️ **Stempeluhr** – Kommen und Gehen als getrennte Stempel (eigene Positionen), Live-Anzeige der Anwesenheit; Stempel lassen sich nachtragen. Kommen→Gehen wird automatisch zu Arbeitszeit gepaart
 - ✏️ **Manuelle Einträge** – Zeiten nachtragen und jederzeit bearbeiten/löschen
 - 🏷️ **Buchungsarten** – manuelle Einträge einer Kategorie zuordnen (z. B. Tarifurlaub, Dienstreise, mobiles Arbeiten …); beim Stempeln immer „Kommen/Gehen"
 - 📁 **Projekte** – Zeiten Projekten/Kunden zuordnen (mit Farbe)

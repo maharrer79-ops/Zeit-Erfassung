@@ -34,6 +34,8 @@ db.exec(`
     description TEXT    NOT NULL DEFAULT '',
     kind_code   TEXT    NOT NULL DEFAULT '0010',
     kind_label  TEXT    NOT NULL DEFAULT 'Kommen/Gehen',
+    entry_type  TEXT    NOT NULL DEFAULT 'interval',
+    punch_dir   TEXT,
     start_ts    TEXT    NOT NULL,
     end_ts      TEXT,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
@@ -52,6 +54,12 @@ if (!entryCols.includes('kind_code')) {
 }
 if (!entryCols.includes('kind_label')) {
   db.exec("ALTER TABLE entries ADD COLUMN kind_label TEXT NOT NULL DEFAULT 'Kommen/Gehen'");
+}
+if (!entryCols.includes('entry_type')) {
+  db.exec("ALTER TABLE entries ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'interval'");
+}
+if (!entryCols.includes('punch_dir')) {
+  db.exec('ALTER TABLE entries ADD COLUMN punch_dir TEXT');
 }
 
 export default db;

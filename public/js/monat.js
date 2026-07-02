@@ -41,7 +41,7 @@ async function init() {
     : { year: now.getFullYear(), month: now.getMonth() };
 
   const data = await getJSON('/api/entries');
-  state.entries = data.entries.filter((e) => e.end_ts);
+  state.entries = data.entries;
 
   bindEvents();
   render();
@@ -83,16 +83,25 @@ function render() {
   $('sheet-title').textContent = `Monatsübersicht – ${MONTHS[month]} ${year}`;
   $('sheet-sub').textContent = state.user ? `${state.user.name} · ${state.user.email}` : '';
 
-  // Einträge des Monats nach Tag gruppieren
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const byDay = new Map();
+
+  // Gearbeitete Bloecke (Intervalle + gepaarte Kommen/Gehen-Stempel) nach Tag
+  const blocksByDay = new Map();
+  for (const b of computeBlocks(state.entries)) {
+    if (b.start.getFullYear() === year && b.start.getMonth() === month) {
+      const d = b.start.getDate();
+      if (!blocksByDay.has(d)) blocksByDay.set(d, []);
+      blocksByDay.get(d).push(b);
+    }
+  }
+  // Beschreibungen je Tag (aus Intervall-Eintraegen; Stempel = "Anwesend")
+  const descByDay = new Map();
   for (const e of state.entries) {
     const s = new Date(e.start_ts);
-    if (s.getFullYear() === year && s.getMonth() === month) {
-      const d = s.getDate();
-      if (!byDay.has(d)) byDay.set(d, []);
-      byDay.get(d).push(e);
-    }
+    if (s.getFullYear() !== year || s.getMonth() !== month) continue;
+    const d = s.getDate();
+    if (!descByDay.has(d)) descByDay.set(d, []);
+    descByDay.get(d).push(e.entry_type === 'punch' ? 'Anwesend' : (e.description || e.kind_label || e.project_name));
   }
 
   // "Heute" auf Tagesgenauigkeit – Soll zählt nur bis heute (kein negatives Saldo für Zukunft)
@@ -107,10 +116,10 @@ function render() {
     const wd = date.getDay();
     const isWeekend = wd === 0 || wd === 6;
     const dayNum = year * 10000 + month * 100 + d;
-    const entries = (byDay.get(d) || []).sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
+    const blocks = (blocksByDay.get(d) || []).sort((a, b) => a.start - b.start);
 
-    // Ist-Stunden des Tages
-    const istMs = entries.reduce((sum, e) => sum + (new Date(e.end_ts) - new Date(e.start_ts)), 0);
+    // Ist-Stunden des Tages (Summe der Bloecke)
+    const istMs = blocks.reduce((sum, b) => sum + (b.end - b.start), 0);
     const ist = istMs / 3_600_000;
 
     // Soll nur an Werktagen und nur bis einschließlich heute
@@ -120,10 +129,11 @@ function render() {
     sumIst += ist;
     sumSoll += soll;
 
-    const von = entries.length ? fmtTime(entries[0].start_ts) : '';
-    const bis = entries.length ? fmtTime(entries[entries.length - 1].end_ts) : '';
-    const desc = entries.length
-      ? [...new Set(entries.map((e) => e.description || e.kind_label || e.project_name).filter(Boolean))].join(', ')
+    const von = blocks.length ? fmtTime(blocks[0].start.toISOString()) : '';
+    const bis = blocks.length ? fmtTime(blocks[blocks.length - 1].end.toISOString()) : '';
+    const descParts = descByDay.get(d) || [];
+    const desc = descParts.length
+      ? [...new Set(descParts.filter(Boolean))].join(', ')
       : (isWeekend ? 'Wochenende' : (soll ? '—' : ''));
 
     const cls = [isWeekend ? 'weekend' : '', dayNum === todayNum ? 'today' : ''].filter(Boolean).join(' ');

@@ -208,6 +208,15 @@ td.dur { font-variant-numeric: tabular-nums; font-weight: 600; }
 .form-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-inline .full { grid-column: 1 / -1; }
 
+.punch-add { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.punch-add-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.punch-add-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.punch-add-row .input { flex: 1; min-width: 110px; }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge.kommen { background: #dcfce7; color: #15803d; }
+.badge.gehen { background: #fee2e2; color: #b91c1c; }
+
 /* ---------- Übersicht ---------- */
 .month-nav { display: flex; align-items: center; gap: 10px; }
 .month-nav button { border: 1px solid var(--border); background: #fff; border-radius: 8px; width: 34px; height: 34px; font-size: 18px; line-height: 1; color: var(--text); }

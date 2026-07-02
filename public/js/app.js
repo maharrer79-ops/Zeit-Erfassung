@@ -70,8 +70,10 @@ async function init() {
   $('user-mail').textContent = u.email;
   $('avatar').textContent = (u.name[0] || '?').toUpperCase();
 
-  // Standard-Datum im Formular = heute
-  $('manual-form').date.value = toDateInput(new Date().toISOString());
+  // Standard-Datum in den Formularen = heute
+  const todayStr = toDateInput(new Date().toISOString());
+  $('manual-form').date.value = todayStr;
+  $('punch-date').value = todayStr;
 
   // Buchungsart-Auswahl fuellen (Standard: Kommen/Gehen)
   fillKindSelect($('manual-kind'));
@@ -96,7 +98,7 @@ function projectOptions(selectedId) {
 }
 
 function renderProjectSelects() {
-  ['timer-project', 'manual-project', 'edit-project'].forEach((id) => {
+  ['manual-project', 'edit-project'].forEach((id) => {
     const el = $(id);
     if (el) { const cur = el.value; el.innerHTML = projectOptions(cur); }
   });
@@ -129,22 +131,17 @@ function renderOverview() {
   const { year, month } = state.view;
   $('month-label').textContent = `${MONTHS[month]} ${year}`;
 
-  // Nur abgeschlossene Einträge des angezeigten Monats
-  const inMonth = state.entries.filter((e) => {
-    if (!e.end_ts) return false;
-    const s = new Date(e.start_ts);
-    return s.getFullYear() === year && s.getMonth() === month;
-  });
+  const inMonth = (d) => d.getFullYear() === year && d.getMonth() === month;
 
-  // Kennzahlen
-  const totalMs = inMonth.reduce((sum, e) => sum + (new Date(e.end_ts) - new Date(e.start_ts)), 0);
+  // Gearbeitete Bloecke (Intervalle + gepaarte Kommen/Gehen-Stempel) des Monats
+  const monthBlocks = computeBlocks(state.entries).filter((b) => inMonth(b.start));
+  const totalMs = monthBlocks.reduce((sum, b) => sum + (b.end - b.start), 0);
 
   // Nach Tag gruppieren
   const byDay = new Map();
-  for (const e of inMonth) {
-    const s = new Date(e.start_ts);
-    const key = s.getDate();
-    byDay.set(key, (byDay.get(key) || 0) + (new Date(e.end_ts) - s));
+  for (const b of monthBlocks) {
+    const key = b.start.getDate();
+    byDay.set(key, (byDay.get(key) || 0) + (b.end - b.start));
   }
   const workDays = byDay.size;
 
@@ -171,14 +168,24 @@ function renderOverview() {
     }).join('');
   }
 
-  // Nach Projekt gruppieren
+  // Nach Projekt gruppieren (Intervall-Eintraege) + Stempelzeit gesammelt
   const byProj = new Map();
-  for (const e of inMonth) {
-    const key = e.project_name || '— Ohne Projekt';
-    const cur = byProj.get(key) || { ms: 0, color: e.project_color || '#94a3b8' };
-    cur.ms += new Date(e.end_ts) - new Date(e.start_ts);
+  const addProj = (key, ms, color) => {
+    const cur = byProj.get(key) || { ms: 0, color: color || '#94a3b8' };
+    cur.ms += ms;
     byProj.set(key, cur);
+  };
+  for (const e of state.entries) {
+    if (e.entry_type === 'punch' || !e.end_ts) continue;
+    const s = new Date(e.start_ts);
+    if (!inMonth(s)) continue;
+    addProj(e.project_name || '— Ohne Projekt', new Date(e.end_ts) - s, e.project_color);
   }
+  // Gepaarte Stempelzeit (Kommen/Gehen) als eigene Position
+  const punchBlocks = computeBlocks(state.entries.filter((e) => e.entry_type === 'punch'))
+    .filter((b) => inMonth(b.start));
+  const punchMs = punchBlocks.reduce((sum, b) => sum + (b.end - b.start), 0);
+  if (punchMs > 0) addProj('Kommen/Gehen (Stempel)', punchMs, '#4f46e5');
   const projBox = $('project-breakdown');
   if (!byProj.size) {
     projBox.innerHTML = '<div class="overview-empty">Keine Zeiten in diesem Monat.</div>';
@@ -207,22 +214,40 @@ function shiftMonth(delta) {
 
 function renderEntries() {
   const body = $('entries-body');
-  const done = state.entries.filter((e) => e.end_ts);
-  if (!done.length) {
+  const rows = state.entries.filter((e) => e.entry_type === 'punch' || e.end_ts);
+  if (!rows.length) {
     body.innerHTML = '<tr><td colspan="7" class="empty">Noch keine Zeiten erfasst. Stemple dich ein oder trage manuell ein.</td></tr>';
     return;
   }
-  body.innerHTML = done.map((e) => {
+  const muted = '<span style="color:var(--muted)">–</span>';
+  body.innerHTML = rows.map((e) => {
+    // Kommen/Gehen-Stempel: eigene Zeile, keine Dauer
+    if (e.entry_type === 'punch') {
+      const badge = e.punch_dir === 'kommen'
+        ? '<span class="badge kommen">▶ Kommen</span>'
+        : '<span class="badge gehen">■ Gehen</span>';
+      return `<tr>
+        <td>${fmtDate(e.start_ts)}</td>
+        <td>${fmtTime(e.start_ts)}</td>
+        <td>${badge}</td>
+        <td>${muted}</td>
+        <td>${muted}</td>
+        <td class="dur">${muted}</td>
+        <td><div class="row-actions">
+          <button class="icon-btn" data-del="${e.id}" title="Löschen">🗑️</button>
+        </div></td>
+      </tr>`;
+    }
     const dur = new Date(e.end_ts) - new Date(e.start_ts);
     const proj = e.project_name
       ? `<span class="proj-tag"><span class="proj-dot" style="background:${e.project_color}"></span>${escapeHtml(e.project_name)}</span>`
-      : '<span style="color:var(--muted)">–</span>';
+      : muted;
     return `<tr>
       <td>${fmtDate(e.start_ts)}</td>
       <td>${fmtTime(e.start_ts)}–${fmtTime(e.end_ts)}</td>
       <td>${escapeHtml(e.kind_label || '')} <span style="color:var(--muted)">${e.kind_code || ''}</span></td>
       <td>${proj}</td>
-      <td>${escapeHtml(e.description) || '<span style="color:var(--muted)">–</span>'}</td>
+      <td>${escapeHtml(e.description) || muted}</td>
       <td class="dur">${fmtDuration(dur)}</td>
       <td><div class="row-actions">
         <button class="icon-btn" data-edit="${e.id}" title="Bearbeiten">✏️</button>
@@ -239,12 +264,11 @@ function renderStats() {
   const startWeek = new Date(startToday); startWeek.setDate(startToday.getDate() - day);
 
   let today = 0, week = 0, total = 0;
-  for (const e of state.entries) {
-    if (!e.end_ts) continue;
-    const s = new Date(e.start_ts), dur = new Date(e.end_ts) - s;
+  for (const b of computeBlocks(state.entries)) {
+    const dur = b.end - b.start;
     total += dur;
-    if (s >= startWeek) week += dur;
-    if (s >= startToday) today += dur;
+    if (b.start >= startWeek) week += dur;
+    if (b.start >= startToday) today += dur;
   }
   $('stat-today').textContent = hoursDecimal(today);
   $('stat-week').textContent = hoursDecimal(week);
@@ -266,21 +290,14 @@ function renderTimer() {
   if (state.running) {
     startBtn.style.display = 'none';
     stopBtn.style.display = 'block';
-    $('timer-project').value = state.running.project_id || '';
-    $('timer-desc').value = state.running.description || '';
-    $('timer-project').disabled = true;
-    $('timer-desc').disabled = true;
     const started = new Date(state.running.start_ts);
     const update = () => { disp.textContent = fmtDuration(new Date() - started); };
     update();
     state.tick = setInterval(update, 1000);
-    const projName = state.running.project_name ? ` · ${state.running.project_name}` : '';
-    meta.textContent = `Läuft seit ${fmtTime(state.running.start_ts)}${projName}`;
+    meta.textContent = `Anwesend seit ${fmtTime(state.running.start_ts)}`;
   } else {
     startBtn.style.display = 'block';
     stopBtn.style.display = 'none';
-    $('timer-project').disabled = false;
-    $('timer-desc').disabled = false;
     disp.textContent = '00:00:00';
     meta.textContent = 'Bereit zum Einstempeln';
   }
@@ -295,23 +312,33 @@ function bindEvents() {
 
   $('start-btn').addEventListener('click', async () => {
     try {
-      await api.post('/api/entries/start', {
-        project_id: $('timer-project').value || null,
-        description: $('timer-desc').value,
-      });
-      await loadRunning();
-      toast('Eingestempelt – Timer läuft');
+      await api.post('/api/entries/start');
+      await Promise.all([loadRunning(), loadEntries()]);
+      toast('Kommen gestempelt');
     } catch (e) { toast(e.message, true); }
   });
 
   $('stop-btn').addEventListener('click', async () => {
     try {
       await api.post('/api/entries/stop');
-      $('timer-desc').value = '';
       await Promise.all([loadRunning(), loadEntries()]);
-      toast('Ausgestempelt & gespeichert');
+      toast('Gehen gestempelt');
     } catch (e) { toast(e.message, true); }
   });
+
+  // Stempel nachtragen (Kommen/Gehen zu einem gewaehlten Zeitpunkt)
+  const addPunch = async (dir) => {
+    const date = $('punch-date').value;
+    const time = $('punch-time').value;
+    if (!date || !time) { toast('Bitte Datum und Uhrzeit angeben', true); return; }
+    try {
+      await api.post('/api/entries/punch', { dir, ts: combineLocal(date, time) });
+      await Promise.all([loadRunning(), loadEntries()]);
+      toast(dir === 'kommen' ? 'Kommen nachgetragen' : 'Gehen nachgetragen');
+    } catch (e) { toast(e.message, true); }
+  };
+  $('punch-kommen').addEventListener('click', () => addPunch('kommen'));
+  $('punch-gehen').addEventListener('click', () => addPunch('gehen'));
 
   $('manual-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
