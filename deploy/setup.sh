@@ -36,17 +36,33 @@ echo "==> Abhaengigkeiten installieren"
 cd "$APP_DIR"
 npm ci --omit=dev
 
-echo "==> Zufaelliges JWT_SECRET erzeugen"
-SECRET="$(openssl rand -hex 32)"
+SERVICE_FILE="/etc/systemd/system/zeitwerk.service"
+
+echo "==> JWT_SECRET bestimmen"
+# Vorhandenes Secret aus der bereits installierten Service-Datei wiederverwenden,
+# damit bei einem Update bestehende Logins gueltig bleiben. Nur beim ersten
+# Deploy (oder wenn noch der Platzhalter drinsteht) wird ein neues erzeugt.
+SECRET="$(grep -oP '^Environment=JWT_SECRET=\K.*' "$SERVICE_FILE" 2>/dev/null | head -n1 || true)"
+if [[ -n "${SECRET:-}" && "$SECRET" != "BITTE-AENDERN-openssl-rand-hex-32" ]]; then
+  echo "    -> vorhandenes JWT_SECRET beibehalten (Logins bleiben gueltig)"
+else
+  SECRET="$(openssl rand -hex 32)"
+  echo "    -> neues JWT_SECRET erzeugt"
+fi
 
 echo "==> systemd-Service einrichten"
 sed \
   -e "s|Environment=JWT_SECRET=.*|Environment=JWT_SECRET=${SECRET}|" \
-  "$SRC_DIR/deploy/zeitwerk.service" > /etc/systemd/system/zeitwerk.service
+  "$SRC_DIR/deploy/zeitwerk.service" > "$SERVICE_FILE"
 
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 systemctl daemon-reload
-systemctl enable --now zeitwerk
+systemctl enable zeitwerk
+
+echo "==> Dienst neu starten (laedt den neuen Code)"
+# 'restart' startet den Dienst auch, falls er gestoppt war – und startet einen
+# bereits laufenden Dienst zuverlaessig neu (im Gegensatz zu 'enable --now').
+systemctl restart zeitwerk
 
 echo
 echo "==> Fertig! ZeitWerk laeuft lokal auf http://127.0.0.1:3000"
