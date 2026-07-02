@@ -16,7 +16,7 @@ const api = {
   del: (p) => api.req(p, { method: 'DELETE' }),
 };
 
-let state = { entries: [], projects: [], running: null, tick: null };
+let state = { entries: [], projects: [], running: null, tick: null, view: null };
 
 // ---------- Helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -43,7 +43,7 @@ function toDateInput(iso) {
 }
 function toTimeInput(iso) {
   const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 }
 function combineLocal(date, time) {
   // date=YYYY-MM-DD, time=HH:MM -> ISO in lokaler Zeit
@@ -113,6 +113,93 @@ async function loadEntries() {
   state.entries = entries;
   renderEntries();
   renderStats();
+  renderOverview();
+}
+
+// ---------- Übersicht (Monat / Tage / Projekte) ----------
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+function renderOverview() {
+  if (!state.view) { const n = new Date(); state.view = { year: n.getFullYear(), month: n.getMonth() }; }
+  const { year, month } = state.view;
+  $('month-label').textContent = `${MONTHS[month]} ${year}`;
+
+  // Nur abgeschlossene Einträge des angezeigten Monats
+  const inMonth = state.entries.filter((e) => {
+    if (!e.end_ts) return false;
+    const s = new Date(e.start_ts);
+    return s.getFullYear() === year && s.getMonth() === month;
+  });
+
+  // Kennzahlen
+  const totalMs = inMonth.reduce((sum, e) => sum + (new Date(e.end_ts) - new Date(e.start_ts)), 0);
+
+  // Nach Tag gruppieren
+  const byDay = new Map();
+  for (const e of inMonth) {
+    const s = new Date(e.start_ts);
+    const key = s.getDate();
+    byDay.set(key, (byDay.get(key) || 0) + (new Date(e.end_ts) - s));
+  }
+  const workDays = byDay.size;
+
+  $('ov-total').textContent = hoursDecimal(totalMs);
+  $('ov-days').textContent = String(workDays);
+  $('ov-avg').textContent = workDays ? hoursDecimal(totalMs / workDays) : '0,0 h';
+
+  // Tagesliste (absteigend nach Datum)
+  const dayBox = $('day-list');
+  if (!byDay.size) {
+    dayBox.innerHTML = '<div class="overview-empty">Keine Zeiten in diesem Monat.</div>';
+  } else {
+    const maxDay = Math.max(...byDay.values());
+    const days = [...byDay.entries()].sort((a, b) => b[0] - a[0]);
+    dayBox.innerHTML = days.map(([day, ms]) => {
+      const d = new Date(year, month, day);
+      const label = `${WEEKDAYS[d.getDay()]} ${String(day).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.`;
+      const pct = maxDay ? Math.round((ms / maxDay) * 100) : 0;
+      return `<div class="day-row">
+        <span class="d-label">${label}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
+        <span class="row-val">${hoursDecimal(ms)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Nach Projekt gruppieren
+  const byProj = new Map();
+  for (const e of inMonth) {
+    const key = e.project_name || '— Ohne Projekt';
+    const cur = byProj.get(key) || { ms: 0, color: e.project_color || '#94a3b8' };
+    cur.ms += new Date(e.end_ts) - new Date(e.start_ts);
+    byProj.set(key, cur);
+  }
+  const projBox = $('project-breakdown');
+  if (!byProj.size) {
+    projBox.innerHTML = '<div class="overview-empty">Keine Zeiten in diesem Monat.</div>';
+  } else {
+    const rows = [...byProj.entries()].sort((a, b) => b[1].ms - a[1].ms);
+    projBox.innerHTML = rows.map(([name, { ms, color }]) => {
+      const pct = totalMs ? Math.round((ms / totalMs) * 100) : 0;
+      return `<div class="proj-row">
+        <span class="p-label"><span class="proj-dot" style="background:${color}"></span>${escapeHtml(name)}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${pct}%;background:${color}"></span></span>
+        <span class="row-val">${hoursDecimal(ms)}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+function shiftMonth(delta) {
+  if (!state.view) return;
+  let { year, month } = state.view;
+  month += delta;
+  if (month < 0) { month = 11; year--; }
+  if (month > 11) { month = 0; year++; }
+  state.view = { year, month };
+  renderOverview();
 }
 
 function renderEntries() {
@@ -132,7 +219,7 @@ function renderEntries() {
       <td>${fmtTime(e.start_ts)}–${fmtTime(e.end_ts)}</td>
       <td>${proj}</td>
       <td>${escapeHtml(e.description) || '<span style="color:var(--muted)">–</span>'}</td>
-      <td class="dur">${fmtDuration(dur).slice(0, 5)} h</td>
+      <td class="dur">${fmtDuration(dur)}</td>
       <td><div class="row-actions">
         <button class="icon-btn" data-edit="${e.id}" title="Bearbeiten">✏️</button>
         <button class="icon-btn" data-del="${e.id}" title="Löschen">🗑️</button>
@@ -268,6 +355,10 @@ function bindEvents() {
       catch (e) { toast(e.message, true); }
     }
   });
+
+  // Monats-Navigation der Übersicht
+  $('month-prev').addEventListener('click', () => shiftMonth(-1));
+  $('month-next').addEventListener('click', () => shiftMonth(1));
 
   // Edit-Modal
   $('edit-cancel').addEventListener('click', closeEdit);

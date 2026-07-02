@@ -207,3 +207,22 @@ td.dur { font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .form-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-inline .full { grid-column: 1 / -1; }
+
+/* ---------- Übersicht ---------- */
+.month-nav { display: flex; align-items: center; gap: 10px; }
+.month-nav button { border: 1px solid var(--border); background: #fff; border-radius: 8px; width: 34px; height: 34px; font-size: 18px; line-height: 1; color: var(--text); }
+.month-nav button:hover { background: #f1f5f9; }
+.month-nav span { font-weight: 700; min-width: 140px; text-align: center; }
+
+.mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+.mini-stat { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 6px; text-align: center; }
+.mini-stat .n { font-size: 19px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+.mini-stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
+
+.day-row, .proj-row { display: grid; grid-template-columns: 96px 1fr 62px; align-items: center; gap: 10px; padding: 7px 0; }
+.day-row .d-label { font-size: 13px; color: var(--muted); }
+.proj-row .p-label { font-size: 13px; display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bar-track { background: #f1f5f9; border-radius: 6px; height: 10px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 6px; background: var(--primary); transition: width .3s ease; }
+.row-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+.overview-empty { color: var(--muted); text-align: center; padding: 24px 0; }

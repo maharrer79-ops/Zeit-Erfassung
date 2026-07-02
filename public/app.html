@@ -60,10 +60,10 @@
               <input class="input" name="date" type="date" required />
             </label>
             <label class="field">Von
-              <input class="input" name="start" type="time" required />
+              <input class="input" name="start" type="time" step="1" required />
             </label>
             <label class="field">Bis
-              <input class="input" name="end" type="time" required />
+              <input class="input" name="end" type="time" step="1" required />
             </label>
             <button type="submit" class="btn btn-primary full">Eintrag hinzufügen</button>
           </form>
@@ -75,6 +75,31 @@
             <button class="btn btn-outline btn-sm" type="submit">+</button>
           </form>
           <div class="chip-list" id="project-chips"></div>
+        </div>
+      </div>
+
+      <!-- Übersicht: Monat / Tage / Projekte -->
+      <div class="section-title">
+        <h2>Übersicht</h2>
+        <div class="month-nav">
+          <button type="button" id="month-prev" title="Vorheriger Monat">‹</button>
+          <span id="month-label">–</span>
+          <button type="button" id="month-next" title="Nächster Monat">›</button>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h3>📅 Tagesübersicht</h3>
+          <div class="mini-stats">
+            <div class="mini-stat"><div class="n" id="ov-total">0,0 h</div><div class="l">Monat</div></div>
+            <div class="mini-stat"><div class="n" id="ov-days">0</div><div class="l">Arbeitstage</div></div>
+            <div class="mini-stat"><div class="n" id="ov-avg">0,0 h</div><div class="l">Ø / Tag</div></div>
+          </div>
+          <div id="day-list"><div class="overview-empty">Keine Zeiten in diesem Monat.</div></div>
+        </div>
+        <div class="card">
+          <h3>📊 Aufteilung nach Projekt</h3>
+          <div id="project-breakdown"><div class="overview-empty">Keine Zeiten in diesem Monat.</div></div>
         </div>
       </div>
 
@@ -114,10 +139,10 @@
             <input class="input" name="date" type="date" required />
           </label>
           <label class="field">Von
-            <input class="input" name="start" type="time" required />
+            <input class="input" name="start" type="time" step="1" required />
           </label>
           <label class="field">Bis
-            <input class="input" name="end" type="time" required />
+            <input class="input" name="end" type="time" step="1" required />
           </label>
         </div>
         <div style="display:flex; gap:10px; margin-top:8px">
