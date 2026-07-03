@@ -1,7 +1,15 @@
-// Buchungsarten-Katalog fuer die Oberflaeche (muss zu server/booking-types.js passen).
-window.DEFAULT_KIND_CODE = '0010';
+// Buchungsarten-Katalog fuer die Oberflaeche.
+// "Kommen" und "Gehen" sind getrennte Stempel (erzeugen je eine eigene Position),
+// die uebrigen Eintraege sind Intervall-Buchungen (Von–Bis).
+
+// Codes der Stempel-Optionen -> Richtung
+window.PUNCH_DIR_BY_CODE = { kommen: 'kommen', gehen: 'gehen' };
+
+window.DEFAULT_KIND_CODE = 'kommen';
+
 window.BOOKING_TYPES = [
-  { code: '0010', label: 'Kommen/Gehen' },
+  { code: 'kommen', label: 'Kommen', punch: true },
+  { code: 'gehen', label: 'Gehen', punch: true },
   { code: '0105', label: 'Behindertenurlaub' },
   { code: '0405', label: 'Bereitschaft' },
   { code: '0412', label: 'Betriebsratsausbildung' },
@@ -20,9 +28,18 @@ window.BOOKING_TYPES = [
 ];
 
 // Fuellt ein <select> mit den Buchungsarten und waehlt selectedCode aus.
-window.fillKindSelect = function (selectEl, selectedCode) {
-  const sel = selectedCode || window.DEFAULT_KIND_CODE;
-  selectEl.innerHTML = window.BOOKING_TYPES.map(
-    (t) => `<option value="${t.code}" ${t.code === sel ? 'selected' : ''}>${t.label} (${t.code})</option>`
-  ).join('');
+// opts.excludePunch = true blendet Kommen/Gehen aus (z.B. beim Bearbeiten eines Intervalls).
+window.fillKindSelect = function (selectEl, selectedCode, opts = {}) {
+  let list = opts.excludePunch ? window.BOOKING_TYPES.filter((t) => !t.punch) : window.BOOKING_TYPES;
+  const sel = selectedCode || (list[0] && list[0].code);
+  // Unbekannten (z.B. alten) Code voranstellen, damit er erhalten bleibt
+  if (sel && !list.some((t) => t.code === sel)) {
+    list = [{ code: sel, label: opts.currentLabel || sel }, ...list];
+  }
+  selectEl.innerHTML = list
+    .map((t) => {
+      const text = t.punch ? t.label : `${t.label} (${t.code})`;
+      return `<option value="${t.code}" ${t.code === sel ? 'selected' : ''}>${text}</option>`;
+    })
+    .join('');
 };

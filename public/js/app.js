@@ -75,8 +75,9 @@ async function init() {
   $('manual-form').date.value = todayStr;
   $('punch-date').value = todayStr;
 
-  // Buchungsart-Auswahl fuellen (Standard: Kommen/Gehen)
+  // Buchungsart-Auswahl fuellen (Standard: Kommen)
   fillKindSelect($('manual-kind'));
+  updateManualMode();
 
   await Promise.all([loadProjects(), loadEntries(), loadRunning()]);
   bindEvents();
@@ -340,24 +341,36 @@ function bindEvents() {
   $('punch-kommen').addEventListener('click', () => addPunch('kommen'));
   $('punch-gehen').addEventListener('click', () => addPunch('gehen'));
 
+  $('manual-kind').addEventListener('change', updateManualMode);
+
   $('manual-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.target;
+    const dir = PUNCH_DIR_BY_CODE[f.kind_code.value];
     try {
-      await api.post('/api/entries', {
-        project_id: f.project_id.value || null,
-        description: f.description.value,
-        kind_code: f.kind_code.value,
-        start_ts: combineLocal(f.date.value, f.start.value),
-        end_ts: combineLocal(f.date.value, f.end.value),
-      });
-      // Felder für den nächsten Eintrag zurücksetzen (Datum, Projekt & Buchungsart bleiben)
-      f.description.value = '';
-      f.start.value = '';
-      f.end.value = '';
-      f.start.focus();
-      await loadEntries();
-      toast('Eintrag hinzugefügt');
+      if (dir) {
+        // Kommen/Gehen: einzelner Stempel zum Zeitpunkt "Von"
+        await api.post('/api/entries/punch', { dir, ts: combineLocal(f.date.value, f.start.value) });
+        f.start.value = '';
+        f.start.focus();
+        await Promise.all([loadRunning(), loadEntries()]);
+        toast(dir === 'kommen' ? 'Kommen gestempelt' : 'Gehen gestempelt');
+      } else {
+        await api.post('/api/entries', {
+          project_id: f.project_id.value || null,
+          description: f.description.value,
+          kind_code: f.kind_code.value,
+          start_ts: combineLocal(f.date.value, f.start.value),
+          end_ts: combineLocal(f.date.value, f.end.value),
+        });
+        // Felder zurücksetzen (Datum, Projekt & Buchungsart bleiben)
+        f.description.value = '';
+        f.start.value = '';
+        f.end.value = '';
+        f.start.focus();
+        await loadEntries();
+        toast('Eintrag hinzugefügt');
+      }
     } catch (e) { toast(e.message, true); }
   });
 
@@ -402,13 +415,24 @@ function bindEvents() {
   $('edit-form').addEventListener('submit', saveEdit);
 }
 
+// Stempel-Modus im manuellen Formular: bei Kommen/Gehen nur einen Zeitpunkt abfragen
+function updateManualMode() {
+  const dir = PUNCH_DIR_BY_CODE[$('manual-kind').value];
+  const isPunch = !!dir;
+  $('manual-bis-field').style.display = isPunch ? 'none' : '';
+  $('manual-form').end.required = !isPunch;
+  $('manual-submit').textContent = isPunch
+    ? (dir === 'kommen' ? '▶ Kommen stempeln' : '■ Gehen stempeln')
+    : 'Eintrag hinzufügen';
+}
+
 function openEdit(id) {
   const e = state.entries.find((x) => String(x.id) === String(id));
   if (!e) return;
   const f = $('edit-form');
   f.id.value = e.id;
   f.description.value = e.description || '';
-  fillKindSelect($('edit-kind'), e.kind_code);
+  fillKindSelect($('edit-kind'), e.kind_code, { excludePunch: true, currentLabel: e.kind_label });
   $('edit-project').innerHTML = projectOptions(e.project_id);
   f.date.value = toDateInput(e.start_ts);
   f.start.value = toTimeInput(e.start_ts);
