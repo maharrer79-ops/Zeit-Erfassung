@@ -106,6 +106,20 @@ router.post('/session', (req, res) => {
   res.status(201).json({ entries: [kommen, gehen] });
 });
 
+// Pause eintragen: Gehen (Pausenbeginn) + Kommen (Pausenende) -> Pause wird nicht als Arbeitszeit gezaehlt
+router.post('/pause', (req, res) => {
+  const { start_ts, end_ts } = req.body || {};
+  if (!isValidDate(start_ts) || !isValidDate(end_ts)) {
+    return res.status(400).json({ error: 'Pausenbeginn und -ende muessen gueltig sein' });
+  }
+  if (new Date(end_ts) <= new Date(start_ts)) {
+    return res.status(400).json({ error: 'Das Pausenende muss nach dem Pausenbeginn liegen' });
+  }
+  const gehen = insertPunch(req.user.id, 'gehen', start_ts);
+  const kommen = insertPunch(req.user.id, 'kommen', end_ts);
+  res.status(201).json({ entries: [gehen, kommen] });
+});
+
 // Manuellen Eintrag anlegen (Intervall mit Buchungsart, z.B. Urlaub/Dienstreise)
 router.post('/', (req, res) => {
   const { project_id = null, description = '', kind_code, start_ts, end_ts } = req.body || {};

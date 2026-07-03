@@ -9,6 +9,7 @@ window.DEFAULT_KIND_CODE = 'session';
 
 window.BOOKING_TYPES = [
   { code: 'session', label: 'Kommen + Gehen (Zeitraum)', pair: true },
+  { code: 'pause', label: 'Pause (Zeitraum)', pause: true },
   { code: 'kommen', label: 'Kommen (Zeitpunkt)', punch: true },
   { code: 'gehen', label: 'Gehen (Zeitpunkt)', punch: true },
   { code: '0105', label: 'Behindertenurlaub' },
@@ -32,7 +33,7 @@ window.BOOKING_TYPES = [
 // opts.excludePunch = true blendet Kommen/Gehen und Zeitraum aus (z.B. beim Bearbeiten eines Intervalls).
 window.fillKindSelect = function (selectEl, selectedCode, opts = {}) {
   let list = opts.excludePunch
-    ? window.BOOKING_TYPES.filter((t) => !t.punch && !t.pair)
+    ? window.BOOKING_TYPES.filter((t) => !t.punch && !t.pair && !t.pause)
     : window.BOOKING_TYPES;
   const sel = selectedCode || (list[0] && list[0].code);
   // Unbekannten (z.B. alten) Code voranstellen, damit er erhalten bleibt
@@ -41,7 +42,7 @@ window.fillKindSelect = function (selectEl, selectedCode, opts = {}) {
   }
   selectEl.innerHTML = list
     .map((t) => {
-      const text = t.punch || t.pair ? t.label : `${t.label} (${t.code})`;
+      const text = t.punch || t.pair || t.pause ? t.label : `${t.label} (${t.code})`;
       return `<option value="${t.code}" ${t.code === sel ? 'selected' : ''}>${text}</option>`;
     })
     .join('');

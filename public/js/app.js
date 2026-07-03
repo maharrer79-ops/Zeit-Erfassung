@@ -349,7 +349,18 @@ function bindEvents() {
     const t = kindMeta(f.kind_code.value);
     const dir = PUNCH_DIR_BY_CODE[f.kind_code.value];
     try {
-      if (t.pair) {
+      if (t.pause) {
+        // Pause -> Gehen (Beginn) + Kommen (Ende); Pause zaehlt nicht als Arbeitszeit
+        await api.post('/api/entries/pause', {
+          start_ts: combineLocal(f.date.value, f.start.value),
+          end_ts: combineLocal(f.date.value, f.end.value),
+        });
+        f.start.value = '';
+        f.end.value = '';
+        f.start.focus();
+        await Promise.all([loadRunning(), loadEntries()]);
+        toast('Pause eingetragen');
+      } else if (t.pair) {
         // Kommen + Gehen als Zeitraum -> zwei getrennte Positionen
         await api.post('/api/entries/session', {
           start_ts: combineLocal(f.date.value, f.start.value),
@@ -441,9 +452,11 @@ function updateManualMode() {
   $('manual-form').end.required = !isPunch;
   $('manual-submit').textContent = isPunch
     ? (code === 'kommen' ? '▶ Kommen stempeln' : '■ Gehen stempeln')
-    : t.pair
-      ? '＋ Kommen + Gehen hinzufügen'
-      : 'Eintrag hinzufügen';
+    : t.pause
+      ? '⏸ Pause eintragen'
+      : t.pair
+        ? '＋ Kommen + Gehen hinzufügen'
+        : 'Eintrag hinzufügen';
 }
 
 function openEdit(id) {
