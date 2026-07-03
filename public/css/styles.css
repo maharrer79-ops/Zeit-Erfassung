@@ -191,9 +191,9 @@ td.dur { font-variant-numeric: tabular-nums; font-weight: 600; }
 .icon-btn { border: none; background: transparent; font-size: 15px; padding: 5px; border-radius: 6px; color: var(--muted); }
 .icon-btn:hover { background: #f1f5f9; color: var(--text); }
 .empty { text-align: center; color: var(--muted); padding: 30px 10px; }
-tr.day-sep td { background: #f8fafc; border-top: 2px solid var(--border); border-bottom: 1px solid var(--border);
-  font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
-  padding: 8px 8px; }
+tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;
+  font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: .5px; color: #0f172a;
+  padding: 10px 8px; }
 
 .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .chip { display: inline-flex; align-items: center; gap: 7px; background: #f1f5f9; border-radius: 20px; padding: 6px 12px; font-size: 13px; }

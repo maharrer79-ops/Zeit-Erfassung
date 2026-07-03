@@ -29,6 +29,32 @@ window.BOOKING_TYPES = [
   { code: '0100', label: 'Tarifurlaub' },
 ];
 
+// Farbe je Buchungsart (Hintergrund + Schrift) fuer die farbliche Trennung in der Liste
+window.KIND_COLORS = {
+  '0010': { bg: '#e2e8f0', fg: '#334155' }, // Kommen/Gehen (neutral)
+  '0100': { bg: '#dbeafe', fg: '#1e40af' }, // Tarifurlaub
+  '0105': { bg: '#e0e7ff', fg: '#3730a3' }, // Behindertenurlaub
+  '0405': { bg: '#f1f5f9', fg: '#475569' }, // Bereitschaft
+  '0410': { bg: '#f3e8ff', fg: '#6b21a8' }, // Lehrgang
+  '0411': { bg: '#fef9c3', fg: '#854d0e' }, // Betriebsratstätigkeit
+  '0412': { bg: '#ede9fe', fg: '#5b21b6' }, // Betriebsratsausbildung
+  '0400': { bg: '#fae8ff', fg: '#86198f' }, // Schule
+  '0406': { bg: '#dcfce7', fg: '#166534' }, // mobiles Arbeiten
+  '0800': { bg: '#cffafe', fg: '#155e75' }, // Dienstreise
+  '0810': { bg: '#ccfbf1', fg: '#115e59' }, // Lenkzeit
+  '0900': { bg: '#ffedd5', fg: '#9a3412' }, // Gleittag
+  '0901': { bg: '#fed7aa', fg: '#9a3412' }, // Gleittag Individuell
+  '0902': { bg: '#fde68a', fg: '#92400e' }, // Gleittag Vorsorgekonto
+  '9800': { bg: '#e0f2fe', fg: '#075985' }, // Passive Reisezeit
+  '9810': { bg: '#fce7f3', fg: '#9d174d' }, // Geschäftsessen
+};
+
+// Liefert ein farbiges Badge (HTML) fuer eine Buchungsart. label sollte bereits escaped sein.
+window.kindBadge = function (code, labelHtml) {
+  const c = window.KIND_COLORS[code] || { bg: '#e2e8f0', fg: '#334155' };
+  return `<span class="badge" style="background:${c.bg};color:${c.fg}">${labelHtml}</span>`;
+};
+
 // Fuellt ein <select> mit den Buchungsarten und waehlt selectedCode aus.
 // opts.excludePunch = true blendet Kommen/Gehen und Zeitraum aus (z.B. beim Bearbeiten eines Intervalls).
 window.fillKindSelect = function (selectEl, selectedCode, opts = {}) {
