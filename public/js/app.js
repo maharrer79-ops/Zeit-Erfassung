@@ -221,7 +221,28 @@ function renderEntries() {
     return;
   }
   const muted = '<span style="color:var(--muted)">–</span>';
-  body.innerHTML = rows.map((e) => {
+  const dayKey = (iso) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  };
+  const dayLabel = (iso) => new Date(iso).toLocaleDateString('de-DE',
+    { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  let lastDay = null;
+  const html = [];
+  for (const e of rows) {
+    const k = dayKey(e.start_ts);
+    if (k !== lastDay) {
+      html.push(`<tr class="day-sep"><td colspan="7">${dayLabel(e.start_ts)}</td></tr>`);
+      lastDay = k;
+    }
+    html.push(renderEntryRow(e, muted));
+  }
+  body.innerHTML = html.join('');
+}
+
+function renderEntryRow(e, muted) {
+  {
     // Kommen/Gehen-Stempel: eigene Zeile, keine Dauer
     if (e.entry_type === 'punch') {
       const badge = e.punch_dir === 'kommen'
@@ -255,7 +276,7 @@ function renderEntries() {
         <button class="icon-btn" data-del="${e.id}" title="Löschen">🗑️</button>
       </div></td>
     </tr>`;
-  }).join('');
+  }
 }
 
 function renderStats() {
