@@ -346,9 +346,21 @@ function bindEvents() {
   $('manual-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.target;
+    const t = kindMeta(f.kind_code.value);
     const dir = PUNCH_DIR_BY_CODE[f.kind_code.value];
     try {
-      if (dir) {
+      if (t.pair) {
+        // Kommen + Gehen als Zeitraum -> zwei getrennte Positionen
+        await api.post('/api/entries/session', {
+          start_ts: combineLocal(f.date.value, f.start.value),
+          end_ts: combineLocal(f.date.value, f.end.value),
+        });
+        f.start.value = '';
+        f.end.value = '';
+        f.start.focus();
+        await Promise.all([loadRunning(), loadEntries()]);
+        toast('Kommen + Gehen hinzugefügt');
+      } else if (dir) {
         // Kommen/Gehen: einzelner Stempel zum Zeitpunkt "Von"
         await api.post('/api/entries/punch', { dir, ts: combineLocal(f.date.value, f.start.value) });
         f.start.value = '';
@@ -415,15 +427,23 @@ function bindEvents() {
   $('edit-form').addEventListener('submit', saveEdit);
 }
 
-// Stempel-Modus im manuellen Formular: bei Kommen/Gehen nur einen Zeitpunkt abfragen
+// Formular-Modus je nach Buchungsart:
+//  - Zeitpunkt (Kommen/Gehen einzeln): nur "Von"
+//  - Zeitraum (Kommen + Gehen) und Intervall-Buchungen: "Von" und "Bis"
+function kindMeta(code) {
+  return (window.BOOKING_TYPES || []).find((t) => t.code === code) || {};
+}
 function updateManualMode() {
-  const dir = PUNCH_DIR_BY_CODE[$('manual-kind').value];
-  const isPunch = !!dir;
+  const code = $('manual-kind').value;
+  const t = kindMeta(code);
+  const isPunch = !!t.punch;
   $('manual-bis-field').style.display = isPunch ? 'none' : '';
   $('manual-form').end.required = !isPunch;
   $('manual-submit').textContent = isPunch
-    ? (dir === 'kommen' ? '▶ Kommen stempeln' : '■ Gehen stempeln')
-    : 'Eintrag hinzufügen';
+    ? (code === 'kommen' ? '▶ Kommen stempeln' : '■ Gehen stempeln')
+    : t.pair
+      ? '＋ Kommen + Gehen hinzufügen'
+      : 'Eintrag hinzufügen';
 }
 
 function openEdit(id) {

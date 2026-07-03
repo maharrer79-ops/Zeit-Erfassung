@@ -92,6 +92,20 @@ router.post('/punch', (req, res) => {
   res.status(201).json({ entry });
 });
 
+// Kommen + Gehen als Zeitraum: legt beide Stempel als getrennte Positionen an
+router.post('/session', (req, res) => {
+  const { start_ts, end_ts } = req.body || {};
+  if (!isValidDate(start_ts) || !isValidDate(end_ts)) {
+    return res.status(400).json({ error: 'Start- und Endzeit muessen gueltig sein' });
+  }
+  if (new Date(end_ts) <= new Date(start_ts)) {
+    return res.status(400).json({ error: 'Die Endzeit (Gehen) muss nach der Startzeit (Kommen) liegen' });
+  }
+  const kommen = insertPunch(req.user.id, 'kommen', start_ts);
+  const gehen = insertPunch(req.user.id, 'gehen', end_ts);
+  res.status(201).json({ entries: [kommen, gehen] });
+});
+
 // Manuellen Eintrag anlegen (Intervall mit Buchungsart, z.B. Urlaub/Dienstreise)
 router.post('/', (req, res) => {
   const { project_id = null, description = '', kind_code, start_ts, end_ts } = req.body || {};
