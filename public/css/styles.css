@@ -154,6 +154,7 @@ label.field input:focus, .input:focus { outline: 2px solid #c7d2fe; border-color
   display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10;
 }
 .app-header .brand { color: var(--text); }
+.app-version { font-size: 11px; font-weight: 500; color: var(--muted); }
 .app-header .brand .dot { background: var(--primary); box-shadow: 0 0 12px rgba(79,70,229,.5); }
 .user-box { display: flex; align-items: center; gap: 14px; }
 .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--primary); color: #fff;

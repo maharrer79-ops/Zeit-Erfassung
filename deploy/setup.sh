@@ -32,6 +32,9 @@ SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$APP_DIR"
 cp -r "$SRC_DIR/server" "$SRC_DIR/public" "$SRC_DIR/package.json" "$SRC_DIR/package-lock.json" "$APP_DIR/"
 
+echo "==> Build-Kennung (Commit) hinterlegen"
+git -C "$SRC_DIR" rev-parse --short HEAD > "$APP_DIR/public/BUILD" 2>/dev/null || echo "unbekannt" > "$APP_DIR/public/BUILD"
+
 echo "==> Abhaengigkeiten installieren"
 cd "$APP_DIR"
 npm ci --omit=dev

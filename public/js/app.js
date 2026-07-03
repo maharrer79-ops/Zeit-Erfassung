@@ -81,6 +81,14 @@ async function init() {
 
   await Promise.all([loadProjects(), loadEntries(), loadRunning()]);
   bindEvents();
+  showVersion();
+}
+
+function showVersion() {
+  fetch('/api/version').then((r) => r.json()).then((d) => {
+    const el = $('app-version');
+    if (el && d.version) el.textContent = 'v' + d.version;
+  }).catch(() => {});
 }
 
 // ---------- Projekte ----------

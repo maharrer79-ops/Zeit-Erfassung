@@ -1,5 +1,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -16,6 +17,14 @@ app.use(cookieParser());
 
 // Health-Check (fuer Docker / Monitoring / Reverse-Proxy)
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// Version/Build-Kennung (wird beim Deploy in public/BUILD geschrieben)
+app.get('/api/version', (req, res) => {
+  let version = 'dev';
+  try { version = readFileSync(join(__dirname, '..', 'public', 'BUILD'), 'utf8').trim() || 'dev'; } catch { /* keine BUILD-Datei */ }
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json({ version });
+});
 
 // API
 app.use('/api/auth', authRoutes);

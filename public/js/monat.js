@@ -49,6 +49,10 @@ async function init() {
 
   bindEvents();
   render();
+  fetch('/api/version').then((r) => r.json()).then((d) => {
+    const el = $('app-version');
+    if (el && d.version) el.textContent = 'v' + d.version;
+  }).catch(() => {});
 }
 
 function bindEvents() {
