@@ -149,23 +149,29 @@
       <div class="form-msg" id="edit-msg"></div>
       <form id="edit-form">
         <input type="hidden" name="id" />
-        <label class="field">Buchungsart
+        <label class="field" id="edit-punchdir-field" style="display:none">Art
+          <select class="input" name="punch_dir" id="edit-punch-dir">
+            <option value="kommen">Kommen</option>
+            <option value="gehen">Gehen</option>
+          </select>
+        </label>
+        <label class="field" id="edit-kind-field">Buchungsart
           <select class="input" name="kind_code" id="edit-kind"></select>
         </label>
         <label class="field">Beschreibung
           <input class="input" name="description" type="text" />
         </label>
-        <label class="field">Projekt
+        <label class="field" id="edit-project-field">Projekt
           <select class="input" name="project_id" id="edit-project"><option value="">Ohne Projekt</option></select>
         </label>
         <div class="form-inline">
           <label class="field">Datum
             <input class="input" name="date" type="date" required />
           </label>
-          <label class="field">Von
+          <label class="field" id="edit-von-field">Von
             <input class="input" name="start" type="time" step="1" required />
           </label>
-          <label class="field">Bis
+          <label class="field" id="edit-bis-field">Bis
             <input class="input" name="end" type="time" step="1" required />
           </label>
         </div>

@@ -26,7 +26,7 @@ window.computeBlocks = function (entries) {
     if (p.punch_dir === 'kommen') {
       open = p; // ein neues Kommen ersetzt ein evtl. offenes (unvollstaendiges)
     } else if (p.punch_dir === 'gehen' && open) {
-      blocks.push({ start: new Date(open.start_ts), end: new Date(p.start_ts), label: 'Anwesend' });
+      blocks.push({ start: new Date(open.start_ts), end: new Date(p.start_ts), label: open.description || 'Anwesend' });
       open = null;
     }
   }

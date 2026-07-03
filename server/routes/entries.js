@@ -34,15 +34,43 @@ function currentOpen(userId) {
   return null;
 }
 
-function insertPunch(userId, dir, ts) {
+function insertPunch(userId, dir, ts, description = '') {
   const label = dir === 'kommen' ? 'Kommen' : 'Gehen';
   const iso = new Date(ts).toISOString();
   const info = db
     .prepare(`INSERT INTO entries (user_id, description, kind_code, kind_label, entry_type, punch_dir, start_ts, end_ts)
-              VALUES (?, '', '0010', ?, 'punch', ?, ?, ?)`)
-    .run(userId, label, dir, iso, iso);
+              VALUES (?, ?, '0010', ?, 'punch', ?, ?, ?)`)
+    .run(userId, String(description || '').trim(), label, dir, iso, iso);
   return db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(info.lastInsertRowid);
 }
+
+// Gearbeitete Zeitbloecke (Intervalle + gepaarte Kommen/Gehen) fuer die Ueberlappungspruefung
+function userBlocks(userId, excludeIds = []) {
+  const rows = db.prepare('SELECT id, entry_type, punch_dir, start_ts, end_ts FROM entries WHERE user_id = ?').all(userId);
+  const ex = new Set(excludeIds.map(Number));
+  const blocks = [];
+  for (const e of rows) {
+    if (ex.has(e.id)) continue;
+    if (e.entry_type !== 'punch' && e.end_ts) blocks.push({ s: +new Date(e.start_ts), e: +new Date(e.end_ts) });
+  }
+  const punches = rows.filter((r) => r.entry_type === 'punch' && !ex.has(r.id))
+    .sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
+  let open = null;
+  for (const p of punches) {
+    if (p.punch_dir === 'kommen') open = p;
+    else if (p.punch_dir === 'gehen' && open) { blocks.push({ s: +new Date(open.start_ts), e: +new Date(p.start_ts) }); open = null; }
+  }
+  return blocks;
+}
+function rangeOverlaps(blocks, startTs, endTs) {
+  const s = +new Date(startTs), e = +new Date(endTs);
+  return blocks.some((b) => s < b.e && b.s < e);
+}
+function pointInBlock(blocks, ts) {
+  const t = +new Date(ts);
+  return blocks.some((b) => t > b.s && t < b.e);
+}
+const OVERLAP_MSG = 'Diese Zeit überschneidet sich mit einer bereits erfassten Zeit';
 
 // Alle Eintraege (neueste zuerst)
 router.get('/', (req, res) => {
@@ -88,35 +116,38 @@ router.post('/punch', (req, res) => {
   const ts = req.body?.ts;
   if (!dir) return res.status(400).json({ error: 'Bitte Kommen oder Gehen angeben' });
   if (!isValidDate(ts)) return res.status(400).json({ error: 'Ungueltiger Zeitpunkt' });
-  const entry = insertPunch(req.user.id, dir, ts);
+  if (pointInBlock(userBlocks(req.user.id), ts)) return res.status(409).json({ error: OVERLAP_MSG });
+  const entry = insertPunch(req.user.id, dir, ts, req.body?.description);
   res.status(201).json({ entry });
 });
 
 // Kommen + Gehen als Zeitraum: legt beide Stempel als getrennte Positionen an
 router.post('/session', (req, res) => {
-  const { start_ts, end_ts } = req.body || {};
+  const { start_ts, end_ts, description } = req.body || {};
   if (!isValidDate(start_ts) || !isValidDate(end_ts)) {
     return res.status(400).json({ error: 'Start- und Endzeit muessen gueltig sein' });
   }
   if (new Date(end_ts) <= new Date(start_ts)) {
     return res.status(400).json({ error: 'Die Endzeit (Gehen) muss nach der Startzeit (Kommen) liegen' });
   }
-  const kommen = insertPunch(req.user.id, 'kommen', start_ts);
-  const gehen = insertPunch(req.user.id, 'gehen', end_ts);
+  if (rangeOverlaps(userBlocks(req.user.id), start_ts, end_ts)) return res.status(409).json({ error: OVERLAP_MSG });
+  const kommen = insertPunch(req.user.id, 'kommen', start_ts, description);
+  const gehen = insertPunch(req.user.id, 'gehen', end_ts, description);
   res.status(201).json({ entries: [kommen, gehen] });
 });
 
 // Pause eintragen: Gehen (Pausenbeginn) + Kommen (Pausenende) -> Pause wird nicht als Arbeitszeit gezaehlt
 router.post('/pause', (req, res) => {
-  const { start_ts, end_ts } = req.body || {};
+  const { start_ts, end_ts, description } = req.body || {};
   if (!isValidDate(start_ts) || !isValidDate(end_ts)) {
     return res.status(400).json({ error: 'Pausenbeginn und -ende muessen gueltig sein' });
   }
   if (new Date(end_ts) <= new Date(start_ts)) {
     return res.status(400).json({ error: 'Das Pausenende muss nach dem Pausenbeginn liegen' });
   }
-  const gehen = insertPunch(req.user.id, 'gehen', start_ts);
-  const kommen = insertPunch(req.user.id, 'kommen', end_ts);
+  // Beschreibung nur am Pausenbeginn (Gehen), damit der Folge-Block nicht falsch beschriftet wird
+  const gehen = insertPunch(req.user.id, 'gehen', start_ts, description || 'Pause');
+  const kommen = insertPunch(req.user.id, 'kommen', end_ts, '');
   res.status(201).json({ entries: [gehen, kommen] });
 });
 
@@ -129,6 +160,7 @@ router.post('/absence', (req, res) => {
   if (days.length > 366) {
     return res.status(400).json({ error: 'Zeitraum zu lang (max. 366 Tage)' });
   }
+  const blocks = userBlocks(req.user.id);
   const kind = resolveKind(kind_code);
   const insert = db.prepare(`INSERT INTO entries (user_id, project_id, description, kind_code, kind_label, entry_type, start_ts, end_ts)
               VALUES (?, ?, ?, ?, ?, 'interval', ?, ?)`);
@@ -136,14 +168,16 @@ router.post('/absence', (req, res) => {
     const tx = db.transaction((rows) => {
       for (const d of rows) {
         if (!isValidDate(d.start_ts) || !isValidDate(d.end_ts) || new Date(d.end_ts) <= new Date(d.start_ts)) {
-          throw new Error('Ungueltiger Tag');
+          throw new Error('INVALID');
         }
+        if (rangeOverlaps(blocks, d.start_ts, d.end_ts)) throw new Error('OVERLAP');
         insert.run(req.user.id, project_id || null, String(description).trim(), kind.code, kind.label,
           new Date(d.start_ts).toISOString(), new Date(d.end_ts).toISOString());
       }
     });
     tx(days);
-  } catch {
+  } catch (err) {
+    if (err.message === 'OVERLAP') return res.status(409).json({ error: OVERLAP_MSG });
     return res.status(400).json({ error: 'Zeitraum ungueltig' });
   }
   res.status(201).json({ count: days.length });
@@ -158,6 +192,7 @@ router.post('/', (req, res) => {
   if (new Date(end_ts) <= new Date(start_ts)) {
     return res.status(400).json({ error: 'Die Endzeit muss nach der Startzeit liegen' });
   }
+  if (rangeOverlaps(userBlocks(req.user.id), start_ts, end_ts)) return res.status(409).json({ error: OVERLAP_MSG });
 
   const kind = resolveKind(kind_code);
   const info = db
@@ -176,15 +211,17 @@ router.put('/:id', (req, res) => {
     .get(req.params.id, req.user.id);
   if (!existing) return res.status(404).json({ error: 'Eintrag nicht gefunden' });
 
-  // Stempel: nur Zeitpunkt und Richtung
+  // Stempel: Zeitpunkt, Richtung und Beschreibung
   if (existing.entry_type === 'punch') {
     const ts = req.body?.start_ts ?? existing.start_ts;
     if (!isValidDate(ts)) return res.status(400).json({ error: 'Zeitpunkt ungueltig' });
+    if (pointInBlock(userBlocks(req.user.id, [existing.id]), ts)) return res.status(409).json({ error: OVERLAP_MSG });
     const dir = req.body?.punch_dir === 'gehen' ? 'gehen'
       : (req.body?.punch_dir === 'kommen' ? 'kommen' : existing.punch_dir);
+    const description = req.body?.description !== undefined ? String(req.body.description).trim() : existing.description;
     const iso = new Date(ts).toISOString();
-    db.prepare('UPDATE entries SET start_ts = ?, end_ts = ?, punch_dir = ?, kind_label = ? WHERE id = ?')
-      .run(iso, iso, dir, dir === 'kommen' ? 'Kommen' : 'Gehen', existing.id);
+    db.prepare('UPDATE entries SET start_ts = ?, end_ts = ?, punch_dir = ?, kind_label = ?, description = ? WHERE id = ?')
+      .run(iso, iso, dir, dir === 'kommen' ? 'Kommen' : 'Gehen', description, existing.id);
     return res.json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(existing.id) });
   }
 
@@ -200,6 +237,9 @@ router.put('/:id', (req, res) => {
   if (end_ts && !isValidDate(end_ts)) return res.status(400).json({ error: 'Endzeit ungueltig' });
   if (end_ts && new Date(end_ts) <= new Date(start_ts)) {
     return res.status(400).json({ error: 'Die Endzeit muss nach der Startzeit liegen' });
+  }
+  if (end_ts && rangeOverlaps(userBlocks(req.user.id, [existing.id]), start_ts, end_ts)) {
+    return res.status(409).json({ error: OVERLAP_MSG });
   }
 
   db.prepare('UPDATE entries SET project_id = ?, description = ?, kind_code = ?, kind_label = ?, start_ts = ?, end_ts = ? WHERE id = ?')
@@ -231,17 +271,16 @@ router.get('/export.csv', (req, res) => {
   for (const r of rows) {
     const start = new Date(r.start_ts);
     if (r.entry_type === 'punch') {
-      // Stempel: eigene Zeile, keine Dauer
       lines.push([
         start.toLocaleDateString('de-DE'),
         start.toLocaleTimeString('de-DE'),
         '', '',
         r.kind_label || '', r.kind_code || '',
-        '', '',
+        '', r.description || '',
       ].map(esc).join(';'));
       continue;
     }
-    if (!r.end_ts) continue; // laufender Intervall-Eintrag: ueberspringen
+    if (!r.end_ts) continue;
     const end = new Date(r.end_ts);
     const hours = ((end - start) / 3_600_000).toFixed(2).replace('.', ',');
     lines.push([

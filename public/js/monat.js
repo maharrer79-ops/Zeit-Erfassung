@@ -3,9 +3,10 @@ const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 const SOLL_KEY = 'zeitwerk_soll';
+const SOLL_FR_KEY = 'zeitwerk_soll_fr';
 
 const $ = (id) => document.getElementById(id);
-let state = { entries: [], view: null, soll: 8, user: null };
+let state = { entries: [], view: null, soll: 8, sollFriday: 8, user: null };
 
 async function getJSON(path) {
   const res = await fetch(path);
@@ -30,7 +31,10 @@ async function init() {
   } catch { return; }
 
   state.soll = parseFloat(localStorage.getItem(SOLL_KEY) ?? '8') || 8;
+  const frStored = localStorage.getItem(SOLL_FR_KEY);
+  state.sollFriday = frStored !== null ? (parseFloat(frStored) || 0) : state.soll;
   $('soll-input').value = state.soll;
+  $('soll-fr-input').value = state.sollFriday;
 
   // Monat aus URL (?m=YYYY-MM) oder aktueller Monat
   const p = new URLSearchParams(location.search).get('m');
@@ -58,6 +62,11 @@ function bindEvents() {
   $('soll-input').addEventListener('change', (e) => {
     state.soll = Math.max(0, parseFloat(e.target.value) || 0);
     localStorage.setItem(SOLL_KEY, String(state.soll));
+    render();
+  });
+  $('soll-fr-input').addEventListener('change', (e) => {
+    state.sollFriday = Math.max(0, parseFloat(e.target.value) || 0);
+    localStorage.setItem(SOLL_FR_KEY, String(state.sollFriday));
     render();
   });
 }
@@ -112,8 +121,9 @@ function render() {
     const istMs = blocks.reduce((sum, b) => sum + (b.end - b.start), 0);
     const ist = istMs / 3_600_000;
 
-    // Soll nur an Werktagen und nur bis einschließlich heute
-    const soll = (!isWeekend && dayNum <= todayNum) ? state.soll : 0;
+    // Soll nur an Werktagen und nur bis einschließlich heute; Freitag ggf. eigenes Soll
+    const sollForDay = wd === 5 ? state.sollFriday : state.soll;
+    const soll = (!isWeekend && dayNum <= todayNum) ? sollForDay : 0;
     const saldo = ist - soll;
 
     sumIst += ist;

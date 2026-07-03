@@ -253,9 +253,10 @@ function renderEntryRow(e, muted) {
         <td>${fmtTime(e.start_ts)}</td>
         <td>${badge}</td>
         <td>${muted}</td>
-        <td>${muted}</td>
+        <td>${escapeHtml(e.description) || muted}</td>
         <td class="dur">${muted}</td>
         <td><div class="row-actions">
+          <button class="icon-btn" data-edit="${e.id}" title="Bearbeiten">✏️</button>
           <button class="icon-btn" data-del="${e.id}" title="Löschen">🗑️</button>
         </div></td>
       </tr>`;
@@ -375,7 +376,9 @@ function bindEvents() {
         await api.post('/api/entries/pause', {
           start_ts: combineLocal(f.date.value, f.start.value),
           end_ts: combineLocal(f.date.value, f.end.value),
+          description: f.description.value,
         });
+        f.description.value = '';
         f.start.value = '';
         f.end.value = '';
         f.start.focus();
@@ -386,7 +389,9 @@ function bindEvents() {
         await api.post('/api/entries/session', {
           start_ts: combineLocal(f.date.value, f.start.value),
           end_ts: combineLocal(f.date.value, f.end.value),
+          description: f.description.value,
         });
+        f.description.value = '';
         f.start.value = '';
         f.end.value = '';
         f.start.focus();
@@ -394,7 +399,12 @@ function bindEvents() {
         toast('Kommen + Gehen hinzugefügt');
       } else if (dir) {
         // Kommen/Gehen: einzelner Stempel zum Zeitpunkt "Von"
-        await api.post('/api/entries/punch', { dir, ts: combineLocal(f.date.value, f.start.value) });
+        await api.post('/api/entries/punch', {
+          dir,
+          ts: combineLocal(f.date.value, f.start.value),
+          description: f.description.value,
+        });
+        f.description.value = '';
         f.start.value = '';
         f.start.focus();
         await Promise.all([loadRunning(), loadEntries()]);
@@ -527,13 +537,29 @@ function openEdit(id) {
   const e = state.entries.find((x) => String(x.id) === String(id));
   if (!e) return;
   const f = $('edit-form');
+  const isPunch = e.entry_type === 'punch';
+  const show = (elId, on) => { $(elId).style.display = on ? '' : 'none'; };
+
   f.id.value = e.id;
+  f.dataset.type = e.entry_type;
   f.description.value = e.description || '';
-  fillKindSelect($('edit-kind'), e.kind_code, { excludePunch: true, currentLabel: e.kind_label });
-  $('edit-project').innerHTML = projectOptions(e.project_id);
   f.date.value = toDateInput(e.start_ts);
   f.start.value = toTimeInput(e.start_ts);
-  f.end.value = e.end_ts ? toTimeInput(e.end_ts) : '';
+
+  // Stempel: nur Zeitpunkt + Richtung; Intervall: Buchungsart/Projekt/Bis
+  show('edit-punchdir-field', isPunch);
+  show('edit-kind-field', !isPunch);
+  show('edit-project-field', !isPunch);
+  show('edit-bis-field', !isPunch);
+  f.end.required = !isPunch;
+
+  if (isPunch) {
+    $('edit-punch-dir').value = e.punch_dir || 'kommen';
+  } else {
+    fillKindSelect($('edit-kind'), e.kind_code, { excludePunch: true, currentLabel: e.kind_label });
+    $('edit-project').innerHTML = projectOptions(e.project_id);
+    f.end.value = e.end_ts ? toTimeInput(e.end_ts) : '';
+  }
   $('edit-msg').className = 'form-msg';
   $('edit-modal').classList.add('open');
 }
@@ -543,13 +569,20 @@ async function saveEdit(ev) {
   ev.preventDefault();
   const f = ev.target;
   try {
-    await api.put(`/api/entries/${f.id.value}`, {
-      project_id: f.project_id.value || null,
-      description: f.description.value,
-      kind_code: f.kind_code.value,
-      start_ts: combineLocal(f.date.value, f.start.value),
-      end_ts: combineLocal(f.date.value, f.end.value),
-    });
+    const body = f.dataset.type === 'punch'
+      ? {
+          punch_dir: f.punch_dir.value,
+          description: f.description.value,
+          start_ts: combineLocal(f.date.value, f.start.value),
+        }
+      : {
+          project_id: f.project_id.value || null,
+          description: f.description.value,
+          kind_code: f.kind_code.value,
+          start_ts: combineLocal(f.date.value, f.start.value),
+          end_ts: combineLocal(f.date.value, f.end.value),
+        };
+    await api.put(`/api/entries/${f.id.value}`, body);
     closeEdit();
     await loadEntries();
     toast('Änderungen gespeichert');
