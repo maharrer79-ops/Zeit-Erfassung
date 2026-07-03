@@ -400,20 +400,38 @@ function bindEvents() {
         await Promise.all([loadRunning(), loadEntries()]);
         toast(dir === 'kommen' ? 'Kommen gestempelt' : 'Gehen gestempelt');
       } else {
-        await api.post('/api/entries', {
-          project_id: f.project_id.value || null,
-          description: f.description.value,
+        // Absenz (Urlaub etc.) ueber einen Datumsbereich -> ein Eintrag pro Tag
+        const startDate = f.date.value;
+        const endDate = $('manual-enddate').value || startDate;
+        const hours = Math.max(0.25, parseFloat($('manual-hours').value) || 8);
+        const weekdaysOnly = $('manual-weekdays').checked;
+        const cur = new Date(startDate + 'T00:00:00');
+        const last = new Date(endDate + 'T00:00:00');
+        if (Number.isNaN(cur.getTime()) || Number.isNaN(last.getTime())) { toast('Bitte gültige Daten wählen', true); return; }
+        if (last < cur) { toast('Das Bis-Datum muss nach dem Von-Datum liegen', true); return; }
+
+        const { start: st, end: et } = hoursToTimeRange(hours);
+        const days = [];
+        const c = new Date(cur);
+        while (c <= last) {
+          const wd = c.getDay();
+          if (!weekdaysOnly || (wd !== 0 && wd !== 6)) {
+            const ds = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}-${String(c.getDate()).padStart(2, '0')}`;
+            days.push({ start_ts: combineLocal(ds, st), end_ts: combineLocal(ds, et) });
+          }
+          c.setDate(c.getDate() + 1);
+        }
+        if (!days.length) { toast('Keine Tage im Zeitraum (nur Werktage aktiv?)', true); return; }
+
+        await api.post('/api/entries/absence', {
           kind_code: f.kind_code.value,
-          start_ts: combineLocal(f.date.value, f.start.value),
-          end_ts: combineLocal(f.date.value, f.end.value),
+          description: f.description.value,
+          project_id: f.project_id.value || null,
+          days,
         });
-        // Felder zurücksetzen (Datum, Projekt & Buchungsart bleiben)
         f.description.value = '';
-        f.start.value = '';
-        f.end.value = '';
-        f.start.focus();
         await loadEntries();
-        toast('Eintrag hinzugefügt');
+        toast(`${days.length} Tag(e) eingetragen`);
       }
     } catch (e) { toast(e.message, true); }
   });
@@ -466,18 +484,43 @@ function kindMeta(code) {
   return (window.BOOKING_TYPES || []).find((t) => t.code === code) || {};
 }
 function updateManualMode() {
+  const f = $('manual-form');
   const code = $('manual-kind').value;
   const t = kindMeta(code);
   const isPunch = !!t.punch;
-  $('manual-bis-field').style.display = isPunch ? 'none' : '';
-  $('manual-form').end.required = !isPunch;
+  const isPause = !!t.pause;
+  const isPair = !!t.pair;
+  const isAbsence = !isPunch && !isPause && !isPair; // numerische Buchungsart (Urlaub etc.)
+  const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+
+  // Uhrzeit-Felder
+  show('manual-von-field', !isAbsence);
+  show('manual-bis-field', !isAbsence && !isPunch);
+  f.start.required = !isAbsence;
+  f.end.required = !isAbsence && !isPunch;
+
+  // Absenz: Datumsbereich statt Uhrzeit
+  show('manual-enddate-field', isAbsence);
+  show('manual-hours-field', isAbsence);
+  show('manual-weekdays-field', isAbsence);
+  $('manual-enddate').required = isAbsence;
+  $('manual-date-label').textContent = isAbsence ? 'Von (Datum)' : 'Datum';
+  if (isAbsence && !$('manual-enddate').value) $('manual-enddate').value = f.date.value;
+
   $('manual-submit').textContent = isPunch
     ? (code === 'kommen' ? '▶ Kommen stempeln' : '■ Gehen stempeln')
-    : t.pause
-      ? '⏸ Pause eintragen'
-      : t.pair
-        ? '＋ Kommen + Gehen hinzufügen'
-        : 'Eintrag hinzufügen';
+    : isPause ? '⏸ Pause eintragen'
+      : isPair ? '＋ Kommen + Gehen hinzufügen'
+        : 'Zeitraum hinzufügen';
+}
+
+// Aus "Stunden pro Tag" einen Von-/Bis-Zeitbereich ab 08:00 machen
+function hoursToTimeRange(hours) {
+  const startMin = 8 * 60;
+  let endMin = startMin + Math.round(hours * 60);
+  if (endMin > 24 * 60 - 1) endMin = 24 * 60 - 1;
+  const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:00`;
+  return { start: '08:00:00', end: fmt(endMin) };
 }
 
 function openEdit(id) {

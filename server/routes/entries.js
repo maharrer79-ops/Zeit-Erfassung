@@ -120,6 +120,35 @@ router.post('/pause', (req, res) => {
   res.status(201).json({ entries: [gehen, kommen] });
 });
 
+// Mehrtaegige Absenz (z.B. Urlaub) ueber einen Zeitraum: ein Eintrag pro Tag
+router.post('/absence', (req, res) => {
+  const { kind_code, description = '', project_id = null, days } = req.body || {};
+  if (!Array.isArray(days) || days.length === 0) {
+    return res.status(400).json({ error: 'Kein Zeitraum angegeben' });
+  }
+  if (days.length > 366) {
+    return res.status(400).json({ error: 'Zeitraum zu lang (max. 366 Tage)' });
+  }
+  const kind = resolveKind(kind_code);
+  const insert = db.prepare(`INSERT INTO entries (user_id, project_id, description, kind_code, kind_label, entry_type, start_ts, end_ts)
+              VALUES (?, ?, ?, ?, ?, 'interval', ?, ?)`);
+  try {
+    const tx = db.transaction((rows) => {
+      for (const d of rows) {
+        if (!isValidDate(d.start_ts) || !isValidDate(d.end_ts) || new Date(d.end_ts) <= new Date(d.start_ts)) {
+          throw new Error('Ungueltiger Tag');
+        }
+        insert.run(req.user.id, project_id || null, String(description).trim(), kind.code, kind.label,
+          new Date(d.start_ts).toISOString(), new Date(d.end_ts).toISOString());
+      }
+    });
+    tx(days);
+  } catch {
+    return res.status(400).json({ error: 'Zeitraum ungueltig' });
+  }
+  res.status(201).json({ count: days.length });
+});
+
 // Manuellen Eintrag anlegen (Intervall mit Buchungsart, z.B. Urlaub/Dienstreise)
 router.post('/', (req, res) => {
   const { project_id = null, description = '', kind_code, start_ts, end_ts } = req.body || {};

@@ -65,7 +65,7 @@
             <label class="field">Projekt
               <select class="input" name="project_id" id="manual-project"><option value="">Ohne Projekt</option></select>
             </label>
-            <label class="field">Datum
+            <label class="field" id="manual-date-field"><span id="manual-date-label">Datum</span>
               <input class="input" name="date" type="date" required />
             </label>
             <label class="field" id="manual-von-field">Von
@@ -73,6 +73,15 @@
             </label>
             <label class="field" id="manual-bis-field">Bis
               <input class="input" name="end" type="time" step="1" required />
+            </label>
+            <label class="field" id="manual-enddate-field" style="display:none">Bis (Datum)
+              <input class="input" id="manual-enddate" type="date" />
+            </label>
+            <label class="field" id="manual-hours-field" style="display:none">Stunden / Tag
+              <input class="input" id="manual-hours" type="number" min="0" max="24" step="0.25" value="8" />
+            </label>
+            <label class="field full" id="manual-weekdays-field" style="display:none; flex-direction:row; align-items:center; gap:8px; font-weight:600;">
+              <input type="checkbox" id="manual-weekdays" checked style="width:auto; margin:0;" /> nur Werktage (Mo–Fr)
             </label>
             <button type="submit" class="btn btn-primary full" id="manual-submit">Eintrag hinzufügen</button>
           </form>
