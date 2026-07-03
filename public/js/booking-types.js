@@ -12,21 +12,23 @@ window.BOOKING_TYPES = [
   { code: 'pause', label: 'Pause (Zeitraum)', pause: true },
   { code: 'kommen', label: 'Kommen (Zeitpunkt)', punch: true },
   { code: 'gehen', label: 'Gehen (Zeitpunkt)', punch: true },
-  { code: '0105', label: 'Behindertenurlaub' },
+  // range: true  -> Datumsbereich (mehrtägig, Stunden/Tag), wie Urlaub
+  // ohne range    -> Uhrzeit-Auswahl (Von–Bis an einem Tag), wie mobiles Arbeiten
+  { code: '0105', label: 'Behindertenurlaub', range: true },
   { code: '0405', label: 'Bereitschaft' },
-  { code: '0412', label: 'Betriebsratsausbildung' },
+  { code: '0412', label: 'Betriebsratsausbildung', range: true },
   { code: '0411', label: 'Betriebsratstätigkeit' },
   { code: '0800', label: 'Dienstreise' },
   { code: '9810', label: 'Geschäftsessen' },
-  { code: '0900', label: 'Gleittag' },
-  { code: '0901', label: 'Gleittag Individuell' },
-  { code: '0902', label: 'Gleittag Vorsorgekonto' },
-  { code: '0410', label: 'Lehrgang' },
+  { code: '0900', label: 'Gleittag', range: true },
+  { code: '0901', label: 'Gleittag Individuell', range: true },
+  { code: '0902', label: 'Gleittag Vorsorgekonto', range: true },
+  { code: '0410', label: 'Lehrgang', range: true },
   { code: '0810', label: 'Lenkzeit' },
   { code: '0406', label: 'mobiles Arbeiten' },
   { code: '9800', label: 'Passive Reisezeit' },
-  { code: '0400', label: 'Schule' },
-  { code: '0100', label: 'Tarifurlaub' },
+  { code: '0400', label: 'Schule', range: true },
+  { code: '0100', label: 'Tarifurlaub', range: true },
 ];
 
 // Farbe je Buchungsart (Hintergrund + Schrift) fuer die farbliche Trennung in der Liste

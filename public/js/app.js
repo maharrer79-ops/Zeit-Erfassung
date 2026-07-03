@@ -417,6 +417,21 @@ function bindEvents() {
         f.start.focus();
         await Promise.all([loadRunning(), loadEntries()]);
         toast(dir === 'kommen' ? 'Kommen gestempelt' : 'Gehen gestempelt');
+      } else if (!t.range) {
+        // Zeitgebundene Buchungsart (z.B. mobiles Arbeiten) -> Von–Bis an einem Tag
+        await api.post('/api/entries', {
+          project_id: f.project_id.value || null,
+          description: f.description.value,
+          kind_code: f.kind_code.value,
+          start_ts: combineLocal(f.date.value, f.start.value),
+          end_ts: combineLocal(f.date.value, f.end.value),
+        });
+        f.description.value = '';
+        f.start.value = '';
+        f.end.value = '';
+        f.start.focus();
+        await loadEntries();
+        toast('Eintrag hinzugefügt');
       } else {
         // Absenz (Urlaub etc.) ueber einen Datumsbereich -> ein Eintrag pro Tag
         const startDate = f.date.value;
@@ -508,28 +523,29 @@ function updateManualMode() {
   const isPunch = !!t.punch;
   const isPause = !!t.pause;
   const isPair = !!t.pair;
-  const isAbsence = !isPunch && !isPause && !isPair; // numerische Buchungsart (Urlaub etc.)
+  const isRange = !!t.range; // mehrtägige Absenz (Urlaub etc.) mit Datumsbereich
   const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
 
-  // Uhrzeit-Felder
-  show('manual-von-field', !isAbsence);
-  show('manual-bis-field', !isAbsence && !isPunch);
-  f.start.required = !isAbsence;
-  f.end.required = !isAbsence && !isPunch;
+  // Uhrzeit-Felder (bei allem ausser Datumsbereich)
+  show('manual-von-field', !isRange);
+  show('manual-bis-field', !isRange && !isPunch);
+  f.start.required = !isRange;
+  f.end.required = !isRange && !isPunch;
 
-  // Absenz: Datumsbereich statt Uhrzeit
-  show('manual-enddate-field', isAbsence);
-  show('manual-hours-field', isAbsence);
-  show('manual-weekdays-field', isAbsence);
-  $('manual-enddate').required = isAbsence;
-  $('manual-date-label').textContent = isAbsence ? 'Von (Datum)' : 'Datum';
-  if (isAbsence && !$('manual-enddate').value) $('manual-enddate').value = f.date.value;
+  // Datumsbereich nur bei mehrtägiger Absenz
+  show('manual-enddate-field', isRange);
+  show('manual-hours-field', isRange);
+  show('manual-weekdays-field', isRange);
+  $('manual-enddate').required = isRange;
+  $('manual-date-label').textContent = isRange ? 'Von (Datum)' : 'Datum';
+  if (isRange && !$('manual-enddate').value) $('manual-enddate').value = f.date.value;
 
   $('manual-submit').textContent = isPunch
     ? (code === 'kommen' ? '▶ Kommen stempeln' : '■ Gehen stempeln')
     : isPause ? '⏸ Pause eintragen'
       : isPair ? '＋ Kommen + Gehen hinzufügen'
-        : 'Zeitraum hinzufügen';
+        : isRange ? 'Zeitraum hinzufügen'
+          : 'Eintrag hinzufügen';
 }
 
 // Aus "Stunden pro Tag" einen Von-/Bis-Zeitbereich ab 08:00 machen
