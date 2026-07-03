@@ -271,9 +271,71 @@ td.dur { font-variant-numeric: tabular-nums; font-weight: 600; }
   .no-print { display: none !important; }
   .app-shell, .container { display: block; padding: 0; margin: 0; max-width: none; }
   .sheet { box-shadow: none; border: none; padding: 0; }
+  .table-scroll { overflow: visible !important; }
   .sheet-table tr.weekend td { background: #f2f2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .sheet-table tr.today td { background: transparent !important; }
   .sheet-table td.pos { color: #000; }
   .sheet-table td.neg { color: #000; }
   @page { margin: 1.4cm; }
+}
+
+/* ---------- Tabellen auf kleinen Screens horizontal scrollbar ---------- */
+.table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-card > table { min-width: 640px; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll .sheet-table { min-width: 560px; }
+
+/* ---------- Mobil-Anpassungen ---------- */
+@media (max-width: 640px) {
+  .container { padding: 16px 14px; }
+  .card { padding: 16px; }
+  .card h3 { font-size: 15px; }
+
+  /* Eingaben mind. 16px -> verhindert Auto-Zoom auf iOS */
+  .input, label.field input, label.field select { font-size: 16px; }
+
+  /* Kopfzeile kompakt */
+  .app-header { padding: 12px 14px; gap: 12px; }
+  .app-header .brand { font-size: 17px; white-space: nowrap; }
+  .user-box { gap: 8px; margin-left: auto; }
+  .user-box .avatar { width: 32px; height: 32px; font-size: 14px; }
+  .user-mail { display: none; }
+  .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Statistik */
+  .stats { gap: 8px; }
+  .stat { padding: 12px 6px; }
+  .stat .num { font-size: 20px; }
+  .stat .lbl { font-size: 10px; }
+
+  /* Stempeluhr */
+  .timer-display { font-size: 42px; }
+  .timer-controls .btn { padding: 14px; font-size: 16px; }
+  .punch-add-row .input { min-width: 0; flex: 1 1 46%; }
+  .punch-add-row .btn { flex: 1 1 46%; }
+
+  /* Formulare untereinander */
+  .form-inline { grid-template-columns: 1fr; }
+
+  /* Übersicht */
+  .section-title { flex-wrap: wrap; gap: 10px; }
+  .section-title h2 { font-size: 18px; }
+  .month-nav span { min-width: 108px; font-size: 15px; }
+  .mini-stats { gap: 8px; }
+  .day-row, .proj-row { grid-template-columns: 78px 1fr 56px; }
+
+  /* Monatsblatt */
+  .sheet { padding: 18px 14px; }
+  .sheet-head h1 { font-size: 18px; }
+  .sheet-controls { gap: 10px; }
+  .soll-field { flex: 1 1 100%; }
+
+  /* grössere Touch-Ziele */
+  .icon-btn { padding: 8px; font-size: 17px; }
+
+  /* Landingpage */
+  .nav { padding: 16px; flex-wrap: wrap; gap: 8px; }
+  .hero-inner { padding: 16px 16px 48px; gap: 28px; }
+  .badges { gap: 16px; }
+  .modal { padding: 24px 20px; }
 }
