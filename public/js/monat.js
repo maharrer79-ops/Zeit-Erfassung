@@ -94,16 +94,6 @@ function render() {
       blocksByDay.get(d).push(b);
     }
   }
-  // Beschreibungen je Tag (aus Intervall-Eintraegen; Stempel = "Anwesend")
-  const descByDay = new Map();
-  for (const e of state.entries) {
-    const s = new Date(e.start_ts);
-    if (s.getFullYear() !== year || s.getMonth() !== month) continue;
-    const d = s.getDate();
-    if (!descByDay.has(d)) descByDay.set(d, []);
-    descByDay.get(d).push(e.entry_type === 'punch' ? 'Anwesend' : (e.description || e.kind_label || e.project_name));
-  }
-
   // "Heute" auf Tagesgenauigkeit – Soll zählt nur bis heute (kein negatives Saldo für Zukunft)
   const now = new Date();
   const todayNum = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
@@ -129,26 +119,42 @@ function render() {
     sumIst += ist;
     sumSoll += soll;
 
-    const von = blocks.length ? fmtTime(blocks[0].start.toISOString()) : '';
-    const bis = blocks.length ? fmtTime(blocks[blocks.length - 1].end.toISOString()) : '';
-    const descParts = descByDay.get(d) || [];
-    const desc = descParts.length
-      ? [...new Set(descParts.filter(Boolean))].join(', ')
-      : (isWeekend ? 'Wochenende' : (soll ? '—' : ''));
-
     const cls = [isWeekend ? 'weekend' : '', dayNum === todayNum ? 'today' : ''].filter(Boolean).join(' ');
     const saldoCls = saldo > 0.004 ? 'pos' : (saldo < -0.004 ? 'neg' : '');
+    const dateLabel = `${String(d).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.`;
+    const sollCell = soll > 0 ? fmtNum(soll) : '';
+    const saldoCell = (ist > 0 || soll > 0) ? fmtSaldo(saldo) : '';
 
-    rows.push(`<tr class="${cls}">
-      <td class="c-date">${String(d).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.</td>
-      <td class="c-day">${WD[wd]}</td>
-      <td class="c-desc">${escapeHtml(desc)}</td>
-      <td class="c-time">${von}</td>
-      <td class="c-time">${bis}</td>
-      <td class="c-num">${ist > 0 ? fmtNum(ist) : ''}</td>
-      <td class="c-num">${soll > 0 ? fmtNum(soll) : ''}</td>
-      <td class="c-num ${saldoCls}">${(ist > 0 || soll > 0) ? fmtSaldo(saldo) : ''}</td>
-    </tr>`);
+    if (blocks.length <= 1) {
+      // Kein oder genau ein Block: eine Zeile
+      const b = blocks[0];
+      const desc = b ? (b.label || 'Anwesend') : (isWeekend ? 'Wochenende' : (soll ? '—' : ''));
+      rows.push(`<tr class="${cls}">
+        <td class="c-date">${dateLabel}</td>
+        <td class="c-day">${WD[wd]}</td>
+        <td class="c-desc">${escapeHtml(desc)}</td>
+        <td class="c-time">${b ? fmtTime(b.start) : ''}</td>
+        <td class="c-time">${b ? fmtTime(b.end) : ''}</td>
+        <td class="c-num">${ist > 0 ? fmtNum(ist) : ''}</td>
+        <td class="c-num">${sollCell}</td>
+        <td class="c-num ${saldoCls}">${saldoCell}</td>
+      </tr>`);
+    } else {
+      // Mehrere Sessions am Tag: je Session eine Zeile; Datum/Soll/Saldo nur in der ersten
+      blocks.forEach((b, i) => {
+        const sessIst = (b.end - b.start) / 3_600_000;
+        rows.push(`<tr class="${cls}">
+          <td class="c-date">${i === 0 ? dateLabel : ''}</td>
+          <td class="c-day">${i === 0 ? WD[wd] : ''}</td>
+          <td class="c-desc">${escapeHtml(b.label || 'Anwesend')}</td>
+          <td class="c-time">${fmtTime(b.start)}</td>
+          <td class="c-time">${fmtTime(b.end)}</td>
+          <td class="c-num">${fmtNum(sessIst)}</td>
+          <td class="c-num">${i === 0 ? sollCell : ''}</td>
+          <td class="c-num ${i === 0 ? saldoCls : ''}">${i === 0 ? saldoCell : ''}</td>
+        </tr>`);
+      });
+    }
   }
 
   $('sheet-body').innerHTML = rows.join('');
