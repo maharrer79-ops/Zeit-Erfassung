@@ -1,34 +1,38 @@
 // Buchungsarten-Katalog fuer die Oberflaeche.
-// "Kommen" und "Gehen" sind getrennte Stempel (erzeugen je eine eigene Position),
-// die uebrigen Eintraege sind Intervall-Buchungen (Von–Bis).
+// "Kommen"/"Gehen"/"Zeitraum"/"Pause" sind Stempel-Aktionen,
+// die uebrigen Eintraege sind Buchungsarten (Uhrzeit oder Datumsbereich).
+//   punch  -> einzelner Zeitstempel
+//   pair   -> Kommen + Gehen (Zeitraum an einem Tag)
+//   pause  -> Pause (Zeitraum an einem Tag)
+//   range  -> mehrtaegige Absenz (Datumsbereich, Stunden/Tag), z.B. Urlaub
+//   top    -> haeufige Buchungsart (oben, vor der Trennlinie)
 
-// Codes der Stempel-Optionen -> Richtung
 window.PUNCH_DIR_BY_CODE = { kommen: 'kommen', gehen: 'gehen' };
-
 window.DEFAULT_KIND_CODE = 'session';
 
 window.BOOKING_TYPES = [
+  // Stempel-Aktionen (immer oben)
   { code: 'session', label: 'Kommen + Gehen (Zeitraum)', pair: true },
   { code: 'pause', label: 'Pause (Zeitraum)', pause: true },
   { code: 'kommen', label: 'Kommen (Zeitpunkt)', punch: true },
   { code: 'gehen', label: 'Gehen (Zeitpunkt)', punch: true },
-  // range: true  -> Datumsbereich (mehrtägig, Stunden/Tag), wie Urlaub
-  // ohne range    -> Uhrzeit-Auswahl (Von–Bis an einem Tag), wie mobiles Arbeiten
+  // Haeufige Buchungsarten (oben, vor der Trennlinie)
+  { code: '0406', label: 'mobiles Arbeiten', top: true },
+  { code: '0800', label: 'Dienstreise', top: true },
+  { code: '0810', label: 'Lenkzeit', top: true },
+  { code: '9800', label: 'Passive Reisezeit', top: true },
+  { code: '0900', label: 'Gleittag', range: true, top: true },
+  { code: '0901', label: 'Gleittag Individuell', range: true, top: true },
+  { code: '0902', label: 'Gleittag Vorsorgekonto', range: true, top: true },
+  { code: '0100', label: 'Tarifurlaub', range: true, top: true },
+  // Weitere Buchungsarten (unter der Trennlinie)
   { code: '0105', label: 'Behindertenurlaub', range: true },
   { code: '0405', label: 'Bereitschaft' },
   { code: '0412', label: 'Betriebsratsausbildung', range: true },
   { code: '0411', label: 'Betriebsratstätigkeit' },
-  { code: '0800', label: 'Dienstreise' },
   { code: '9810', label: 'Geschäftsessen' },
-  { code: '0900', label: 'Gleittag', range: true },
-  { code: '0901', label: 'Gleittag Individuell', range: true },
-  { code: '0902', label: 'Gleittag Vorsorgekonto', range: true },
   { code: '0410', label: 'Lehrgang', range: true },
-  { code: '0810', label: 'Lenkzeit' },
-  { code: '0406', label: 'mobiles Arbeiten' },
-  { code: '9800', label: 'Passive Reisezeit' },
   { code: '0400', label: 'Schule', range: true },
-  { code: '0100', label: 'Tarifurlaub', range: true },
 ];
 
 // Farbe je Buchungsart (Hintergrund + Schrift) fuer die farbliche Trennung in der Liste
@@ -58,7 +62,7 @@ window.kindBadge = function (code, labelHtml) {
 };
 
 // Fuellt ein <select> mit den Buchungsarten und waehlt selectedCode aus.
-// opts.excludePunch = true blendet Kommen/Gehen und Zeitraum aus (z.B. beim Bearbeiten eines Intervalls).
+// opts.excludePunch = true blendet Kommen/Gehen/Zeitraum/Pause aus (z.B. beim Bearbeiten eines Intervalls).
 window.fillKindSelect = function (selectEl, selectedCode, opts = {}) {
   let list = opts.excludePunch
     ? window.BOOKING_TYPES.filter((t) => !t.punch && !t.pair && !t.pause)
@@ -66,12 +70,18 @@ window.fillKindSelect = function (selectEl, selectedCode, opts = {}) {
   const sel = selectedCode || (list[0] && list[0].code);
   // Unbekannten (z.B. alten) Code voranstellen, damit er erhalten bleibt
   if (sel && !list.some((t) => t.code === sel)) {
-    list = [{ code: sel, label: opts.currentLabel || sel }, ...list];
+    list = [{ code: sel, label: opts.currentLabel || sel, top: true }, ...list];
   }
-  selectEl.innerHTML = list
-    .map((t) => {
-      const text = t.punch || t.pair || t.pause ? t.label : `${t.label} (${t.code})`;
-      return `<option value="${t.code}" ${t.code === sel ? 'selected' : ''}>${text}</option>`;
-    })
-    .join('');
+
+  const parts = [];
+  let dividerAdded = false;
+  for (const t of list) {
+    const isTop = t.punch || t.pair || t.pause || t.top;
+    if (!isTop && !dividerAdded) {
+      parts.push('<option disabled>──────────────</option>');
+      dividerAdded = true;
+    }
+    parts.push(`<option value="${t.code}" ${t.code === sel ? 'selected' : ''}>${t.label}</option>`);
+  }
+  selectEl.innerHTML = parts.join('');
 };

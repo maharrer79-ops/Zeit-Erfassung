@@ -276,7 +276,7 @@ function renderEntryRow(e, muted) {
     return `<tr>
       <td>${fmtDate(e.start_ts)}</td>
       <td>${fmtTime(e.start_ts)}–${fmtTime(e.end_ts)}</td>
-      <td>${kindBadge(e.kind_code, escapeHtml(e.kind_label || ''))}${e.kind_code && e.kind_code !== '0010' ? ` <span style="color:var(--muted); font-size:12px">${e.kind_code}</span>` : ''}</td>
+      <td>${kindBadge(e.kind_code, escapeHtml(e.kind_label || ''))}</td>
       <td>${proj}</td>
       <td>${escapeHtml(e.description) || muted}</td>
       <td class="dur">${fmtDuration(dur)}</td>
