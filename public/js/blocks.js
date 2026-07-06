@@ -51,9 +51,37 @@ window.computeBlocks = function (entries) {
   return blocks;
 };
 
-// Alle Pausen als { start: Date, end: Date }
+// Alle Pausen als { start: Date, end: Date }:
+//  - ausdrueckliche Pause-Eintraege
+//  - Luecken zwischen aufeinanderfolgenden Kommen/Gehen-Paaren AM SELBEN TAG
+//    (also Gehen -> spaeter wieder Kommen). Das letzte Gehen eines Tages ist
+//    Feierabend und zaehlt nicht als Pause.
 window.computePauses = function (entries) {
-  return entries
+  const pauses = entries
     .filter((e) => e.entry_type === 'pause' && e.end_ts)
     .map((e) => ({ start: new Date(e.start_ts), end: new Date(e.end_ts) }));
+
+  const sameDay = (a, b) => a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  const punches = entries
+    .filter((e) => e.entry_type === 'punch')
+    .sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
+  const pairs = [];
+  let open = null;
+  for (const p of punches) {
+    if (p.punch_dir === 'kommen') open = p;
+    else if (p.punch_dir === 'gehen' && open) {
+      pairs.push({ start: new Date(open.start_ts), end: new Date(p.start_ts) });
+      open = null;
+    }
+  }
+  for (let i = 0; i < pairs.length - 1; i++) {
+    const gapStart = pairs[i].end;      // ein Gehen
+    const gapEnd = pairs[i + 1].start;  // das naechste Kommen
+    if (gapEnd > gapStart && sameDay(gapStart, gapEnd)) {
+      pauses.push({ start: gapStart, end: gapEnd });
+    }
+  }
+  return pauses;
 };

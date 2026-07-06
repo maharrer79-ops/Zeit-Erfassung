@@ -31,6 +31,12 @@ function fmtDuration(ms) {
 function hoursDecimal(ms) {
   return (ms / 3_600_000).toFixed(1).replace('.', ',') + ' h';
 }
+function fmtPause(ms) {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')} min`;
+}
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
@@ -168,7 +174,7 @@ function renderOverview() {
   $('ov-days').textContent = String(workDays);
   $('ov-avg').textContent = workDays ? hoursDecimal(totalMs / workDays) : '0,0 h';
   const pauseEl = $('ov-pause');
-  if (pauseEl) pauseEl.textContent = hoursDecimal(pauseTotal);
+  if (pauseEl) pauseEl.textContent = fmtPause(pauseTotal);
 
   // Tagesliste (absteigend nach Datum)
   const dayBox = $('day-list');
@@ -182,7 +188,7 @@ function renderOverview() {
       const label = `${WEEKDAYS[d.getDay()]} ${String(day).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.`;
       const pct = maxDay ? Math.round((ms / maxDay) * 100) : 0;
       const pauseMs = pauseByDay.get(day) || 0;
-      const pauseTxt = pauseMs > 0 ? `<br><span style="font-size:11px; color:var(--muted)">Pause ${hoursDecimal(pauseMs)}</span>` : '';
+      const pauseTxt = pauseMs > 0 ? `<br><span style="font-size:11px; color:var(--muted)">Pause ${fmtPause(pauseMs)}</span>` : '';
       return `<div class="day-row">
         <span class="d-label">${label}</span>
         <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>

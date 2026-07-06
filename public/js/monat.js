@@ -19,6 +19,12 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 function fmtNum(h) { return h.toFixed(2).replace('.', ','); }
+function fmtPause(ms) {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')} min`;
+}
 function fmtSaldo(h) {
   const s = h.toFixed(2).replace('.', ',');
   return h > 0 ? '+' + s : s; // negatives Vorzeichen ist schon dabei
@@ -121,7 +127,7 @@ function render() {
   const todayNum = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
 
   const rows = [];
-  let sumIst = 0, sumSoll = 0, sumPause = 0;
+  let sumIst = 0, sumSoll = 0, sumPauseMs = 0;
 
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
@@ -139,17 +145,17 @@ function render() {
     const soll = (!isWeekend && dayNum <= todayNum) ? sollForDay : 0;
     const saldo = ist - soll;
 
-    const pauseH = (pauseByDay.get(d) || 0) / 3_600_000;
+    const pauseMs = pauseByDay.get(d) || 0;
     sumIst += ist;
     sumSoll += soll;
-    sumPause += pauseH;
+    sumPauseMs += pauseMs;
 
     const cls = [isWeekend ? 'weekend' : '', dayNum === todayNum ? 'today' : ''].filter(Boolean).join(' ');
     const saldoCls = saldo > 0.004 ? 'pos' : (saldo < -0.004 ? 'neg' : '');
     const dateLabel = `${String(d).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.`;
     const sollCell = soll > 0 ? fmtNum(soll) : '';
     const saldoCell = (ist > 0 || soll > 0) ? fmtSaldo(saldo) : '';
-    const pauseCell = pauseH > 0 ? fmtNum(pauseH) : '';
+    const pauseCell = pauseMs > 0 ? fmtPause(pauseMs) : '';
 
     if (blocks.length <= 1) {
       // Kein oder genau ein Block: eine Zeile
@@ -187,7 +193,7 @@ function render() {
 
   $('sheet-body').innerHTML = rows.join('');
   $('sum-ist').textContent = fmtNum(sumIst);
-  $('sum-pause').textContent = fmtNum(sumPause);
+  $('sum-pause').textContent = fmtPause(sumPauseMs);
   $('sum-soll').textContent = fmtNum(sumSoll);
   const sumSaldo = sumIst - sumSoll;
   const el = $('sum-saldo');
