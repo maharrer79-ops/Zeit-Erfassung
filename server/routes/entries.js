@@ -51,7 +51,9 @@ function userBlocks(userId, excludeIds = []) {
   const blocks = [];
   for (const e of rows) {
     if (ex.has(e.id)) continue;
-    if (e.entry_type !== 'punch' && e.end_ts) blocks.push({ s: +new Date(e.start_ts), e: +new Date(e.end_ts) });
+    if (e.entry_type !== 'punch' && e.entry_type !== 'pause' && e.end_ts) {
+      blocks.push({ s: +new Date(e.start_ts), e: +new Date(e.end_ts) });
+    }
   }
   const punches = rows.filter((r) => r.entry_type === 'punch' && !ex.has(r.id))
     .sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
@@ -136,7 +138,7 @@ router.post('/session', (req, res) => {
   res.status(201).json({ entries: [kommen, gehen] });
 });
 
-// Pause eintragen: Gehen (Pausenbeginn) + Kommen (Pausenende) -> Pause wird nicht als Arbeitszeit gezaehlt
+// Pause eintragen: eigener Eintrag (Typ 'pause'); wird von der Arbeitszeit abgezogen
 router.post('/pause', (req, res) => {
   const { start_ts, end_ts, description } = req.body || {};
   if (!isValidDate(start_ts) || !isValidDate(end_ts)) {
@@ -145,10 +147,13 @@ router.post('/pause', (req, res) => {
   if (new Date(end_ts) <= new Date(start_ts)) {
     return res.status(400).json({ error: 'Das Pausenende muss nach dem Pausenbeginn liegen' });
   }
-  // Beschreibung nur am Pausenbeginn (Gehen), damit der Folge-Block nicht falsch beschriftet wird
-  const gehen = insertPunch(req.user.id, 'gehen', start_ts, description || 'Pause');
-  const kommen = insertPunch(req.user.id, 'kommen', end_ts, '');
-  res.status(201).json({ entries: [gehen, kommen] });
+  const info = db
+    .prepare(`INSERT INTO entries (user_id, description, kind_code, kind_label, entry_type, start_ts, end_ts)
+              VALUES (?, ?, 'pause', 'Pause', 'pause', ?, ?)`)
+    .run(req.user.id, String(description || '').trim(),
+         new Date(start_ts).toISOString(), new Date(end_ts).toISOString());
+  const entry = db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(info.lastInsertRowid);
+  res.status(201).json({ entry });
 });
 
 // Mehrtaegige Absenz (z.B. Urlaub) ueber einen Zeitraum: ein Eintrag pro Tag
@@ -222,6 +227,18 @@ router.put('/:id', (req, res) => {
     const iso = new Date(ts).toISOString();
     db.prepare('UPDATE entries SET start_ts = ?, end_ts = ?, punch_dir = ?, kind_label = ?, description = ? WHERE id = ?')
       .run(iso, iso, dir, dir === 'kommen' ? 'Kommen' : 'Gehen', description, existing.id);
+    return res.json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(existing.id) });
+  }
+
+  // Pause: Zeitraum und Beschreibung (ohne Ueberlappungspruefung, Typ bleibt)
+  if (existing.entry_type === 'pause') {
+    const s = req.body?.start_ts ?? existing.start_ts;
+    const e = req.body?.end_ts ?? existing.end_ts;
+    if (!isValidDate(s) || !isValidDate(e)) return res.status(400).json({ error: 'Zeit ungueltig' });
+    if (new Date(e) <= new Date(s)) return res.status(400).json({ error: 'Das Pausenende muss nach dem Pausenbeginn liegen' });
+    const description = req.body?.description !== undefined ? String(req.body.description).trim() : existing.description;
+    db.prepare('UPDATE entries SET start_ts = ?, end_ts = ?, description = ? WHERE id = ?')
+      .run(new Date(s).toISOString(), new Date(e).toISOString(), description, existing.id);
     return res.json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(existing.id) });
   }
 

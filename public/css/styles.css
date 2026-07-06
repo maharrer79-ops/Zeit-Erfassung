@@ -220,6 +220,7 @@ tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-botto
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 .badge.kommen { background: #dcfce7; color: #15803d; }
 .badge.gehen { background: #fee2e2; color: #b91c1c; }
+.badge.pause { background: #fef3c7; color: #92400e; }
 
 /* ---------- Übersicht ---------- */
 .month-nav { display: flex; align-items: center; gap: 10px; }
@@ -227,7 +228,7 @@ tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-botto
 .month-nav button:hover { background: #f1f5f9; }
 .month-nav span { font-weight: 700; min-width: 140px; text-align: center; }
 
-.mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+.mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px; margin-bottom: 18px; }
 .mini-stat { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 6px; text-align: center; }
 .mini-stat .n { font-size: 19px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
 .mini-stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }

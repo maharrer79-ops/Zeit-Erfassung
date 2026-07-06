@@ -107,12 +107,21 @@ function render() {
       blocksByDay.get(d).push(b);
     }
   }
+  // Pausen nach Tag
+  const pauseByDay = new Map();
+  for (const p of computePauses(state.entries)) {
+    if (p.start.getFullYear() === year && p.start.getMonth() === month) {
+      const d = p.start.getDate();
+      pauseByDay.set(d, (pauseByDay.get(d) || 0) + (p.end - p.start));
+    }
+  }
+
   // "Heute" auf Tagesgenauigkeit – Soll zählt nur bis heute (kein negatives Saldo für Zukunft)
   const now = new Date();
   const todayNum = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
 
   const rows = [];
-  let sumIst = 0, sumSoll = 0;
+  let sumIst = 0, sumSoll = 0, sumPause = 0;
 
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
@@ -130,14 +139,17 @@ function render() {
     const soll = (!isWeekend && dayNum <= todayNum) ? sollForDay : 0;
     const saldo = ist - soll;
 
+    const pauseH = (pauseByDay.get(d) || 0) / 3_600_000;
     sumIst += ist;
     sumSoll += soll;
+    sumPause += pauseH;
 
     const cls = [isWeekend ? 'weekend' : '', dayNum === todayNum ? 'today' : ''].filter(Boolean).join(' ');
     const saldoCls = saldo > 0.004 ? 'pos' : (saldo < -0.004 ? 'neg' : '');
     const dateLabel = `${String(d).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.`;
     const sollCell = soll > 0 ? fmtNum(soll) : '';
     const saldoCell = (ist > 0 || soll > 0) ? fmtSaldo(saldo) : '';
+    const pauseCell = pauseH > 0 ? fmtNum(pauseH) : '';
 
     if (blocks.length <= 1) {
       // Kein oder genau ein Block: eine Zeile
@@ -150,11 +162,12 @@ function render() {
         <td class="c-time">${b ? fmtTime(b.start) : ''}</td>
         <td class="c-time">${b ? fmtTime(b.end) : ''}</td>
         <td class="c-num">${ist > 0 ? fmtNum(ist) : ''}</td>
+        <td class="c-num">${pauseCell}</td>
         <td class="c-num">${sollCell}</td>
         <td class="c-num ${saldoCls}">${saldoCell}</td>
       </tr>`);
     } else {
-      // Mehrere Sessions am Tag: je Session eine Zeile; Datum/Soll/Saldo nur in der ersten
+      // Mehrere Sessions am Tag: je Session eine Zeile; Datum/Pause/Soll/Saldo nur in der ersten
       blocks.forEach((b, i) => {
         const sessIst = (b.end - b.start) / 3_600_000;
         rows.push(`<tr class="${cls}">
@@ -164,6 +177,7 @@ function render() {
           <td class="c-time">${fmtTime(b.start)}</td>
           <td class="c-time">${fmtTime(b.end)}</td>
           <td class="c-num">${fmtNum(sessIst)}</td>
+          <td class="c-num">${i === 0 ? pauseCell : ''}</td>
           <td class="c-num">${i === 0 ? sollCell : ''}</td>
           <td class="c-num ${i === 0 ? saldoCls : ''}">${i === 0 ? saldoCell : ''}</td>
         </tr>`);
@@ -173,6 +187,7 @@ function render() {
 
   $('sheet-body').innerHTML = rows.join('');
   $('sum-ist').textContent = fmtNum(sumIst);
+  $('sum-pause').textContent = fmtNum(sumPause);
   $('sum-soll').textContent = fmtNum(sumSoll);
   const sumSaldo = sumIst - sumSoll;
   const el = $('sum-saldo');

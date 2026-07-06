@@ -154,9 +154,21 @@ function renderOverview() {
   }
   const workDays = byDay.size;
 
+  // Pausen pro Tag (Summe je Tag)
+  const pauseByDay = new Map();
+  let pauseTotal = 0;
+  for (const p of computePauses(state.entries)) {
+    if (!inMonth(p.start)) continue;
+    const ms = p.end - p.start;
+    pauseByDay.set(p.start.getDate(), (pauseByDay.get(p.start.getDate()) || 0) + ms);
+    pauseTotal += ms;
+  }
+
   $('ov-total').textContent = hoursDecimal(totalMs);
   $('ov-days').textContent = String(workDays);
   $('ov-avg').textContent = workDays ? hoursDecimal(totalMs / workDays) : '0,0 h';
+  const pauseEl = $('ov-pause');
+  if (pauseEl) pauseEl.textContent = hoursDecimal(pauseTotal);
 
   // Tagesliste (absteigend nach Datum)
   const dayBox = $('day-list');
@@ -169,10 +181,12 @@ function renderOverview() {
       const d = new Date(year, month, day);
       const label = `${WEEKDAYS[d.getDay()]} ${String(day).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.`;
       const pct = maxDay ? Math.round((ms / maxDay) * 100) : 0;
+      const pauseMs = pauseByDay.get(day) || 0;
+      const pauseTxt = pauseMs > 0 ? `<br><span style="font-size:11px; color:var(--muted)">Pause ${hoursDecimal(pauseMs)}</span>` : '';
       return `<div class="day-row">
         <span class="d-label">${label}</span>
         <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
-        <span class="row-val">${hoursDecimal(ms)}</span>
+        <span class="row-val">${hoursDecimal(ms)}${pauseTxt}</span>
       </div>`;
     }).join('');
   }
@@ -251,6 +265,22 @@ function renderEntries() {
 
 function renderEntryRow(e, muted) {
   {
+    // Pause: eigene Zeile mit Dauer
+    if (e.entry_type === 'pause') {
+      const dur = new Date(e.end_ts) - new Date(e.start_ts);
+      return `<tr>
+        <td>${fmtDate(e.start_ts)}</td>
+        <td>${fmtTime(e.start_ts)}–${fmtTime(e.end_ts)}</td>
+        <td><span class="badge pause">⏸ Pause</span></td>
+        <td>${muted}</td>
+        <td>${escapeHtml(e.description) || muted}</td>
+        <td class="dur">${fmtDuration(dur)}</td>
+        <td><div class="row-actions">
+          <button class="icon-btn" data-edit="${e.id}" title="Bearbeiten">✏️</button>
+          <button class="icon-btn" data-del="${e.id}" title="Löschen">🗑️</button>
+        </div></td>
+      </tr>`;
+    }
     // Kommen/Gehen-Stempel: eigene Zeile, keine Dauer
     if (e.entry_type === 'punch') {
       const badge = e.punch_dir === 'kommen'
@@ -562,6 +592,7 @@ function openEdit(id) {
   if (!e) return;
   const f = $('edit-form');
   const isPunch = e.entry_type === 'punch';
+  const isPause = e.entry_type === 'pause';
   const show = (elId, on) => { $(elId).style.display = on ? '' : 'none'; };
 
   f.id.value = e.id;
@@ -570,19 +601,21 @@ function openEdit(id) {
   f.date.value = toDateInput(e.start_ts);
   f.start.value = toTimeInput(e.start_ts);
 
-  // Stempel: nur Zeitpunkt + Richtung; Intervall: Buchungsart/Projekt/Bis
+  // Stempel: Zeitpunkt+Richtung; Pause: nur Zeitraum+Beschreibung; Intervall: Buchungsart/Projekt/Bis
   show('edit-punchdir-field', isPunch);
-  show('edit-kind-field', !isPunch);
-  show('edit-project-field', !isPunch);
+  show('edit-kind-field', !isPunch && !isPause);
+  show('edit-project-field', !isPunch && !isPause);
   show('edit-bis-field', !isPunch);
   f.end.required = !isPunch;
 
   if (isPunch) {
     $('edit-punch-dir').value = e.punch_dir || 'kommen';
   } else {
-    fillKindSelect($('edit-kind'), e.kind_code, { excludePunch: true, currentLabel: e.kind_label });
-    $('edit-project').innerHTML = projectOptions(e.project_id);
     f.end.value = e.end_ts ? toTimeInput(e.end_ts) : '';
+    if (!isPause) {
+      fillKindSelect($('edit-kind'), e.kind_code, { excludePunch: true, currentLabel: e.kind_label });
+      $('edit-project').innerHTML = projectOptions(e.project_id);
+    }
   }
   $('edit-msg').className = 'form-msg';
   $('edit-modal').classList.add('open');
@@ -593,19 +626,28 @@ async function saveEdit(ev) {
   ev.preventDefault();
   const f = ev.target;
   try {
-    const body = f.dataset.type === 'punch'
-      ? {
-          punch_dir: f.punch_dir.value,
-          description: f.description.value,
-          start_ts: combineLocal(f.date.value, f.start.value),
-        }
-      : {
-          project_id: f.project_id.value || null,
-          description: f.description.value,
-          kind_code: f.kind_code.value,
-          start_ts: combineLocal(f.date.value, f.start.value),
-          end_ts: combineLocal(f.date.value, f.end.value),
-        };
+    let body;
+    if (f.dataset.type === 'punch') {
+      body = {
+        punch_dir: f.punch_dir.value,
+        description: f.description.value,
+        start_ts: combineLocal(f.date.value, f.start.value),
+      };
+    } else if (f.dataset.type === 'pause') {
+      body = {
+        description: f.description.value,
+        start_ts: combineLocal(f.date.value, f.start.value),
+        end_ts: combineLocal(f.date.value, f.end.value),
+      };
+    } else {
+      body = {
+        project_id: f.project_id.value || null,
+        description: f.description.value,
+        kind_code: f.kind_code.value,
+        start_ts: combineLocal(f.date.value, f.start.value),
+        end_ts: combineLocal(f.date.value, f.end.value),
+      };
+    }
     await api.put(`/api/entries/${f.id.value}`, body);
     closeEdit();
     await loadEntries();
