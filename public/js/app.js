@@ -16,7 +16,7 @@ const api = {
   del: (p) => api.req(p, { method: 'DELETE' }),
 };
 
-let state = { entries: [], projects: [], running: null, tick: null, view: null };
+let state = { entries: [], projects: [], running: null, tick: null, view: null, ovView: 'tag' };
 
 // ---------- Helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -141,75 +141,79 @@ const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
-function renderOverview() {
-  if (!state.view) { const n = new Date(); state.view = { year: n.getFullYear(), month: n.getMonth() }; }
-  const { year, month } = state.view;
-  $('month-label').textContent = `${MONTHS[month]} ${year}`;
-
-  const inMonth = (d) => d.getFullYear() === year && d.getMonth() === month;
-
-  // Gearbeitete Bloecke (Intervalle + gepaarte Kommen/Gehen-Stempel) des Monats
-  const monthBlocks = computeBlocks(state.entries).filter((b) => inMonth(b.start));
-  const totalMs = monthBlocks.reduce((sum, b) => sum + (b.end - b.start), 0);
-
-  // Nach Tag gruppieren
-  // Kennzahlen nur fuer HEUTE
-  const nowD = new Date();
-  const isToday = (d) => d.getFullYear() === nowD.getFullYear()
-    && d.getMonth() === nowD.getMonth() && d.getDate() === nowD.getDate();
-  const todayBlocks = computeBlocks(state.entries).filter((b) => isToday(b.start));
-  const todayMs = todayBlocks.reduce((s, b) => s + (b.end - b.start), 0);
-  let pauseTodayMs = 0;
-  for (const p of computePauses(state.entries)) {
-    if (isToday(p.start)) pauseTodayMs += (p.end - p.start);
-  }
-
-  // Soll heute (aus den Monatsblatt-Einstellungen); Freitag ggf. eigener Wert
+function sollForWeekday(wd) {
   const sollBase = parseFloat(localStorage.getItem('zeitwerk_soll') ?? '8') || 8;
   const sollFrStored = localStorage.getItem('zeitwerk_soll_fr');
   const sollFr = sollFrStored !== null ? (parseFloat(sollFrStored) || 0) : sollBase;
-  const wd = nowD.getDay();
-  const sollToday = (wd === 0 || wd === 6) ? 0 : (wd === 5 ? sollFr : sollBase);
-  const saldoH = todayMs / 3_600_000 - sollToday;
+  if (wd === 0 || wd === 6) return 0;
+  return wd === 5 ? sollFr : sollBase;
+}
+function saldoStat(label, hours) {
+  const txt = (hours >= 0 ? '+' : '') + hours.toFixed(1).replace('.', ',') + ' h';
+  const color = hours > 0.02 ? 'var(--success)' : (hours < -0.02 ? 'var(--danger)' : 'var(--primary)');
+  return `<div class="mini-stat"><div class="n" style="color:${color}">${txt}</div><div class="l">${label}</div></div>`;
+}
+function stat(label, value) {
+  return `<div class="mini-stat"><div class="n">${value}</div><div class="l">${label}</div></div>`;
+}
 
-  $('ov-today').textContent = hoursDecimal(todayMs);
-  $('ov-pause').textContent = fmtPause(pauseTodayMs);
-  $('ov-sessions').textContent = String(todayBlocks.length);
-  const saldoEl = $('ov-saldo');
-  saldoEl.textContent = (saldoH >= 0 ? '+' : '') + saldoH.toFixed(1).replace('.', ',') + ' h';
-  saldoEl.style.color = saldoH > 0.02 ? 'var(--success)' : (saldoH < -0.02 ? 'var(--danger)' : '');
+function renderOverview() {
+  if (!state.view) { const n = new Date(); state.view = { year: n.getFullYear(), month: n.getMonth() }; }
+  if (!state.ovView) state.ovView = 'tag';
+  const { year, month } = state.view;
 
-  // Nach Projekt gruppieren (Intervall-Eintraege) + Stempelzeit gesammelt
-  const byProj = new Map();
-  const addProj = (key, ms, color) => {
-    const cur = byProj.get(key) || { ms: 0, color: color || '#94a3b8' };
-    cur.ms += ms;
-    byProj.set(key, cur);
-  };
-  for (const e of state.entries) {
-    if (e.entry_type === 'punch' || !e.end_ts) continue;
-    const s = new Date(e.start_ts);
-    if (!inMonth(s)) continue;
-    addProj(e.project_name || '— Ohne Projekt', new Date(e.end_ts) - s, e.project_color);
-  }
-  // Gepaarte Stempelzeit (Kommen/Gehen) als eigene Position
-  const punchBlocks = computeBlocks(state.entries.filter((e) => e.entry_type === 'punch'))
-    .filter((b) => inMonth(b.start));
-  const punchMs = punchBlocks.reduce((sum, b) => sum + (b.end - b.start), 0);
-  if (punchMs > 0) addProj('Kommen/Gehen (Stempel)', punchMs, '#4f46e5');
-  const projBox = $('project-breakdown');
-  if (!byProj.size) {
-    projBox.innerHTML = '<div class="overview-empty">Keine Zeiten in diesem Monat.</div>';
+  // Umschalter + Monats-Navigation je nach Ansicht
+  document.querySelectorAll('#ov-toggle button').forEach((b) =>
+    b.classList.toggle('active', b.dataset.view === state.ovView));
+  const monatView = state.ovView === 'monat';
+  $('month-prev').style.display = monatView ? '' : 'none';
+  $('month-next').style.display = monatView ? '' : 'none';
+
+  const box = $('mini-stats');
+  const blocks = computeBlocks(state.entries);
+  const pauses = computePauses(state.entries);
+
+  if (!monatView) {
+    // ---------- Tagesansicht (heute) ----------
+    const nowD = new Date();
+    const isToday = (d) => d.getFullYear() === nowD.getFullYear()
+      && d.getMonth() === nowD.getMonth() && d.getDate() === nowD.getDate();
+    const todayBlocks = blocks.filter((b) => isToday(b.start));
+    const todayMs = todayBlocks.reduce((s, b) => s + (b.end - b.start), 0);
+    const pauseMs = pauses.filter((p) => isToday(p.start)).reduce((s, p) => s + (p.end - p.start), 0);
+    const saldoH = todayMs / 3_600_000 - sollForWeekday(nowD.getDay());
+
+    $('month-label').textContent = nowD.toLocaleDateString('de-DE',
+      { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    box.innerHTML = stat('Gearbeitet', hoursDecimal(todayMs))
+      + stat('Pause', fmtPause(pauseMs))
+      + saldoStat('Saldo', saldoH)
+      + stat('Sitzungen', String(todayBlocks.length));
   } else {
-    const rows = [...byProj.entries()].sort((a, b) => b[1].ms - a[1].ms);
-    projBox.innerHTML = rows.map(([name, { ms, color }]) => {
-      const pct = totalMs ? Math.round((ms / totalMs) * 100) : 0;
-      return `<div class="proj-row">
-        <span class="p-label"><span class="proj-dot" style="background:${color}"></span>${escapeHtml(name)}</span>
-        <span class="bar-track"><span class="bar-fill" style="width:${pct}%;background:${color}"></span></span>
-        <span class="row-val">${hoursDecimal(ms)}</span>
-      </div>`;
-    }).join('');
+    // ---------- Monatsansicht ----------
+    const inMonth = (d) => d.getFullYear() === year && d.getMonth() === month;
+    const monthBlocks = blocks.filter((b) => inMonth(b.start));
+    const totalMs = monthBlocks.reduce((s, b) => s + (b.end - b.start), 0);
+    const pauseMs = pauses.filter((p) => inMonth(p.start)).reduce((s, p) => s + (p.end - p.start), 0);
+    const workDays = new Set(monthBlocks.map((b) => b.start.getDate())).size;
+
+    // Soll bis heute im Monat
+    const nowD = new Date();
+    const todayNum = nowD.getFullYear() * 10000 + nowD.getMonth() * 100 + nowD.getDate();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let sollH = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(year, month, d);
+      const dayNum = year * 10000 + month * 100 + d;
+      if (dayNum <= todayNum) sollH += sollForWeekday(dt.getDay());
+    }
+    const saldoH = totalMs / 3_600_000 - sollH;
+
+    $('month-label').textContent = `${MONTHS[month]} ${year}`;
+    box.innerHTML = stat('Gesamt', hoursDecimal(totalMs))
+      + stat('Arbeitstage', String(workDays))
+      + stat('Pause', fmtPause(pauseMs))
+      + saldoStat('Saldo', saldoH);
   }
 }
 
@@ -535,6 +539,14 @@ function bindEvents() {
   // Monats-Navigation der Übersicht
   $('month-prev').addEventListener('click', () => shiftMonth(-1));
   $('month-next').addEventListener('click', () => shiftMonth(1));
+
+  // Umschalter Tag / Monat
+  $('ov-toggle').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-view]');
+    if (!btn) return;
+    state.ovView = btn.dataset.view;
+    renderOverview();
+  });
 
   // Edit-Modal
   $('edit-cancel').addEventListener('click', closeEdit);
