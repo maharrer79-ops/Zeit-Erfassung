@@ -153,27 +153,31 @@ function renderOverview() {
   const totalMs = monthBlocks.reduce((sum, b) => sum + (b.end - b.start), 0);
 
   // Nach Tag gruppieren
-  const byDay = new Map();
-  for (const b of monthBlocks) {
-    const key = b.start.getDate();
-    byDay.set(key, (byDay.get(key) || 0) + (b.end - b.start));
-  }
-  const workDays = byDay.size;
-
-  // Pause nur fuer heute
+  // Kennzahlen nur fuer HEUTE
   const nowD = new Date();
   const isToday = (d) => d.getFullYear() === nowD.getFullYear()
     && d.getMonth() === nowD.getMonth() && d.getDate() === nowD.getDate();
+  const todayBlocks = computeBlocks(state.entries).filter((b) => isToday(b.start));
+  const todayMs = todayBlocks.reduce((s, b) => s + (b.end - b.start), 0);
   let pauseTodayMs = 0;
   for (const p of computePauses(state.entries)) {
     if (isToday(p.start)) pauseTodayMs += (p.end - p.start);
   }
 
-  $('ov-total').textContent = hoursDecimal(totalMs);
-  $('ov-days').textContent = String(workDays);
-  $('ov-avg').textContent = workDays ? hoursDecimal(totalMs / workDays) : '0,0 h';
-  const pauseEl = $('ov-pause');
-  if (pauseEl) pauseEl.textContent = fmtPause(pauseTodayMs);
+  // Soll heute (aus den Monatsblatt-Einstellungen); Freitag ggf. eigener Wert
+  const sollBase = parseFloat(localStorage.getItem('zeitwerk_soll') ?? '8') || 8;
+  const sollFrStored = localStorage.getItem('zeitwerk_soll_fr');
+  const sollFr = sollFrStored !== null ? (parseFloat(sollFrStored) || 0) : sollBase;
+  const wd = nowD.getDay();
+  const sollToday = (wd === 0 || wd === 6) ? 0 : (wd === 5 ? sollFr : sollBase);
+  const saldoH = todayMs / 3_600_000 - sollToday;
+
+  $('ov-today').textContent = hoursDecimal(todayMs);
+  $('ov-pause').textContent = fmtPause(pauseTodayMs);
+  $('ov-sessions').textContent = String(todayBlocks.length);
+  const saldoEl = $('ov-saldo');
+  saldoEl.textContent = (saldoH >= 0 ? '+' : '') + saldoH.toFixed(1).replace('.', ',') + ' h';
+  saldoEl.style.color = saldoH > 0.02 ? 'var(--success)' : (saldoH < -0.02 ? 'var(--danger)' : '');
 
   // Nach Projekt gruppieren (Intervall-Eintraege) + Stempelzeit gesammelt
   const byProj = new Map();
