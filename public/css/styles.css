@@ -195,6 +195,8 @@ td.dur { font-variant-numeric: tabular-nums; font-weight: 600; }
 tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;
   font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: .5px; color: #0f172a;
   padding: 10px 8px; }
+.day-sep-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.day-sep-totals { font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--primary); white-space: nowrap; }
 
 .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .chip { display: inline-flex; align-items: center; gap: 7px; background: #f1f5f9; border-radius: 20px; padding: 6px 12px; font-size: 13px; }

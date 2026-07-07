@@ -160,16 +160,13 @@ function renderOverview() {
   }
   const workDays = byDay.size;
 
-  // Pausen pro Tag (Summe je Tag) fuer die Tagesliste + Pause nur fuer heute
+  // Pause nur fuer heute
   const nowD = new Date();
   const isToday = (d) => d.getFullYear() === nowD.getFullYear()
     && d.getMonth() === nowD.getMonth() && d.getDate() === nowD.getDate();
-  const pauseByDay = new Map();
   let pauseTodayMs = 0;
   for (const p of computePauses(state.entries)) {
-    const ms = p.end - p.start;
-    if (inMonth(p.start)) pauseByDay.set(p.start.getDate(), (pauseByDay.get(p.start.getDate()) || 0) + ms);
-    if (isToday(p.start)) pauseTodayMs += ms;
+    if (isToday(p.start)) pauseTodayMs += (p.end - p.start);
   }
 
   $('ov-total').textContent = hoursDecimal(totalMs);
@@ -177,27 +174,6 @@ function renderOverview() {
   $('ov-avg').textContent = workDays ? hoursDecimal(totalMs / workDays) : '0,0 h';
   const pauseEl = $('ov-pause');
   if (pauseEl) pauseEl.textContent = fmtPause(pauseTodayMs);
-
-  // Tagesliste (absteigend nach Datum)
-  const dayBox = $('day-list');
-  if (!byDay.size) {
-    dayBox.innerHTML = '<div class="overview-empty">Keine Zeiten in diesem Monat.</div>';
-  } else {
-    const maxDay = Math.max(...byDay.values());
-    const days = [...byDay.entries()].sort((a, b) => b[0] - a[0]);
-    dayBox.innerHTML = days.map(([day, ms]) => {
-      const d = new Date(year, month, day);
-      const label = `${WEEKDAYS[d.getDay()]} ${String(day).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.`;
-      const pct = maxDay ? Math.round((ms / maxDay) * 100) : 0;
-      const pauseMs = pauseByDay.get(day) || 0;
-      const pauseTxt = pauseMs > 0 ? `<br><span style="font-size:11px; color:var(--muted)">Pause ${fmtPause(pauseMs)}</span>` : '';
-      return `<div class="day-row">
-        <span class="d-label">${label}</span>
-        <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
-        <span class="row-val">${hoursDecimal(ms)}${pauseTxt}</span>
-      </div>`;
-    }).join('');
-  }
 
   // Nach Projekt gruppieren (Intervall-Eintraege) + Stempelzeit gesammelt
   const byProj = new Map();
@@ -258,12 +234,26 @@ function renderEntries() {
   const dayLabel = (iso) => new Date(iso).toLocaleDateString('de-DE',
     { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
+  // Tagessummen: gearbeitete Zeit und Pause je Tag
+  const keyOf = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const workedByDay = new Map();
+  for (const b of computeBlocks(state.entries)) {
+    workedByDay.set(keyOf(b.start), (workedByDay.get(keyOf(b.start)) || 0) + (b.end - b.start));
+  }
+  const pauseByDay = new Map();
+  for (const p of computePauses(state.entries)) {
+    pauseByDay.set(keyOf(p.start), (pauseByDay.get(keyOf(p.start)) || 0) + (p.end - p.start));
+  }
+
   let lastDay = null;
   const html = [];
   for (const e of rows) {
     const k = dayKey(e.start_ts);
     if (k !== lastDay) {
-      html.push(`<tr class="day-sep"><td colspan="7">${dayLabel(e.start_ts)}</td></tr>`);
+      const worked = workedByDay.get(k) || 0;
+      const pause = pauseByDay.get(k) || 0;
+      const totals = `<span class="day-sep-totals">${hoursDecimal(worked)}${pause > 0 ? ` · Pause ${fmtPause(pause)}` : ''}</span>`;
+      html.push(`<tr class="day-sep"><td colspan="7"><div class="day-sep-row"><span>${dayLabel(e.start_ts)}</span>${totals}</div></td></tr>`);
       lastDay = k;
     }
     html.push(renderEntryRow(e, muted));
