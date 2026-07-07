@@ -157,23 +157,36 @@ function render() {
     const saldoCell = (ist > 0 || soll > 0) ? fmtSaldo(saldo) : '';
     const pauseCell = pauseMs > 0 ? fmtPause(pauseMs) : '';
 
-    if (blocks.length <= 1) {
-      // Kein oder genau ein Block: eine Zeile
-      const b = blocks[0];
-      const desc = b ? (b.label || 'Anwesend') : (isWeekend ? 'Wochenende' : (soll ? '—' : ''));
+    if (blocks.length === 0) {
+      // Kein Block: Wochenende/leer (nur Soll/Saldo)
+      const desc = isWeekend ? 'Wochenende' : (soll ? '—' : '');
       rows.push(`<tr class="${cls}">
         <td class="c-date">${dateLabel}</td>
         <td class="c-day">${WD[wd]}</td>
         <td class="c-desc">${escapeHtml(desc)}</td>
-        <td class="c-time">${b ? fmtTime(b.start) : ''}</td>
-        <td class="c-time">${b ? fmtTime(b.end) : ''}</td>
-        <td class="c-num">${ist > 0 ? fmtNum(ist) : ''}</td>
-        <td class="c-num">${pauseCell}</td>
+        <td class="c-time"></td>
+        <td class="c-time"></td>
+        <td class="c-num"></td>
+        <td class="c-num"></td>
+        <td class="c-num">${sollCell}</td>
+        <td class="c-num ${saldoCls}">${saldoCell}</td>
+      </tr>`);
+    } else if (blocks.length === 1) {
+      // Genau ein Block: eine Zeile; Tagessumme (Std) und Pause fett
+      const b = blocks[0];
+      rows.push(`<tr class="${cls}">
+        <td class="c-date">${dateLabel}</td>
+        <td class="c-day">${WD[wd]}</td>
+        <td class="c-desc">${escapeHtml(b.label || 'Anwesend')}</td>
+        <td class="c-time">${fmtTime(b.start)}</td>
+        <td class="c-time">${fmtTime(b.end)}</td>
+        <td class="c-num strong">${fmtNum(ist)}</td>
+        <td class="c-num strong">${pauseCell}</td>
         <td class="c-num">${sollCell}</td>
         <td class="c-num ${saldoCls}">${saldoCell}</td>
       </tr>`);
     } else {
-      // Mehrere Sessions am Tag: je Session eine Zeile; Datum/Pause/Soll/Saldo nur in der ersten
+      // Mehrere Sessions: je Session eine Zeile, danach eine fette Summenzeile
       blocks.forEach((b, i) => {
         const sessIst = (b.end - b.start) / 3_600_000;
         rows.push(`<tr class="${cls}">
@@ -183,11 +196,22 @@ function render() {
           <td class="c-time">${fmtTime(b.start)}</td>
           <td class="c-time">${fmtTime(b.end)}</td>
           <td class="c-num">${fmtNum(sessIst)}</td>
-          <td class="c-num">${i === 0 ? pauseCell : ''}</td>
-          <td class="c-num">${i === 0 ? sollCell : ''}</td>
-          <td class="c-num ${i === 0 ? saldoCls : ''}">${i === 0 ? saldoCell : ''}</td>
+          <td class="c-num"></td>
+          <td class="c-num"></td>
+          <td class="c-num"></td>
         </tr>`);
       });
+      rows.push(`<tr class="${cls} day-total">
+        <td class="c-date"></td>
+        <td class="c-day"></td>
+        <td class="c-desc">Summe Tag</td>
+        <td class="c-time"></td>
+        <td class="c-time"></td>
+        <td class="c-num strong">${fmtNum(ist)}</td>
+        <td class="c-num strong">${pauseCell}</td>
+        <td class="c-num">${sollCell}</td>
+        <td class="c-num ${saldoCls}">${saldoCell}</td>
+      </tr>`);
     }
   }
 

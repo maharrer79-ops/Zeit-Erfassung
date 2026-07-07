@@ -264,6 +264,9 @@ tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-botto
 .sheet-table .c-day { font-weight: 600; }
 .sheet-table tr.weekend td { background: #f8fafc; color: var(--muted); }
 .sheet-table tr.today td { background: #eef2ff; }
+.sheet-table td.strong { font-weight: 800; color: #0f172a; }
+.sheet-table tr.day-total td { border-top: 1px dashed #cbd5e1; }
+.sheet-table tr.day-total td.c-desc { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: .4px; }
 .sheet-table td.pos { color: var(--success); font-weight: 600; }
 .sheet-table td.neg { color: var(--danger); font-weight: 600; }
 .sheet-table tfoot .sum-row td { border-top: 2px solid var(--text); border-bottom: none;
