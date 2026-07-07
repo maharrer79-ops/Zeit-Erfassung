@@ -160,21 +160,23 @@ function renderOverview() {
   }
   const workDays = byDay.size;
 
-  // Pausen pro Tag (Summe je Tag)
+  // Pausen pro Tag (Summe je Tag) fuer die Tagesliste + Pause nur fuer heute
+  const nowD = new Date();
+  const isToday = (d) => d.getFullYear() === nowD.getFullYear()
+    && d.getMonth() === nowD.getMonth() && d.getDate() === nowD.getDate();
   const pauseByDay = new Map();
-  let pauseTotal = 0;
+  let pauseTodayMs = 0;
   for (const p of computePauses(state.entries)) {
-    if (!inMonth(p.start)) continue;
     const ms = p.end - p.start;
-    pauseByDay.set(p.start.getDate(), (pauseByDay.get(p.start.getDate()) || 0) + ms);
-    pauseTotal += ms;
+    if (inMonth(p.start)) pauseByDay.set(p.start.getDate(), (pauseByDay.get(p.start.getDate()) || 0) + ms);
+    if (isToday(p.start)) pauseTodayMs += ms;
   }
 
   $('ov-total').textContent = hoursDecimal(totalMs);
   $('ov-days').textContent = String(workDays);
   $('ov-avg').textContent = workDays ? hoursDecimal(totalMs / workDays) : '0,0 h';
   const pauseEl = $('ov-pause');
-  if (pauseEl) pauseEl.textContent = fmtPause(pauseTotal);
+  if (pauseEl) pauseEl.textContent = fmtPause(pauseTodayMs);
 
   // Tagesliste (absteigend nach Datum)
   const dayBox = $('day-list');
