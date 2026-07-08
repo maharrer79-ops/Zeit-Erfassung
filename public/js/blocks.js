@@ -1,11 +1,17 @@
+// Ausdrueckliche Pause-Eintraege (Typ 'pause')
+function explicitPauses(entries) {
+  return entries
+    .filter((e) => e.entry_type === 'pause' && e.end_ts)
+    .map((e) => ({ start: new Date(e.start_ts), end: new Date(e.end_ts) }));
+}
+
 // Wandelt Eintraege in gearbeitete Zeitbloecke um:
 //  - Intervall-Eintraege (Von–Bis) und gepaarte Kommen/Gehen-Stempel = Anwesenheit
-//  - Pausen (Typ 'pause') werden von der Anwesenheit abgezogen
+//  - ausdrueckliche Pausen (Typ 'pause') werden herausgeschnitten
 // Rueckgabe: Array von { start: Date, end: Date, label: string }
 window.computeBlocks = function (entries) {
   const presence = [];
 
-  // Anwesenheit aus Intervall-Eintraegen (ohne Pausen)
   for (const e of entries) {
     if (e.entry_type === 'punch' || e.entry_type === 'pause') continue;
     if (e.end_ts) {
@@ -17,7 +23,6 @@ window.computeBlocks = function (entries) {
     }
   }
 
-  // Anwesenheit aus Kommen/Gehen-Stempeln
   const punches = entries
     .filter((e) => e.entry_type === 'punch')
     .sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
@@ -30,10 +35,7 @@ window.computeBlocks = function (entries) {
     }
   }
 
-  // Pausen
-  const pauses = window.computePauses(entries);
-
-  // Pausen aus der Anwesenheit herausschneiden -> Arbeitsbloecke
+  const pauses = explicitPauses(entries);
   const blocks = [];
   for (const pr of presence) {
     let segments = [{ start: pr.start, end: pr.end }];
@@ -51,33 +53,38 @@ window.computeBlocks = function (entries) {
   return blocks;
 };
 
-// Alle Pausen als { start: Date, end: Date }:
-//  - ausdrueckliche Pause-Eintraege
-//  - Luecken zwischen aufeinanderfolgenden Kommen/Gehen-Paaren AM SELBEN TAG
-//    (also Gehen -> spaeter wieder Kommen). Das letzte Gehen eines Tages ist
-//    Feierabend und zaehlt nicht als Pause.
+// Pausen eines Tages = Luecken ZWISCHEN den Arbeitsbloecken (zwischen erstem
+// Start und letztem Ende des Tages). Gilt fuer Stempel UND Intervall-Eintraege.
+// Ein noch offenes "Kommen" (aktuell anwesend) zaehlt als Endpunkt mit, damit
+// die Pause schon waehrend des Tages sichtbar ist.
 window.computePauses = function (entries) {
-  const pauses = entries
-    .filter((e) => e.entry_type === 'pause' && e.end_ts)
-    .map((e) => ({ start: new Date(e.start_ts), end: new Date(e.end_ts) }));
+  const segs = window.computeBlocks(entries).map((b) => ({ start: b.start, end: b.end }));
 
-  const sameDay = (a, b) => a.getFullYear() === b.getFullYear()
-    && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
-  // Jede Folge "Gehen -> danach Kommen" am selben Tag ist eine Pause.
-  // Das zweite Kommen muss NICHT abgeschlossen sein (auch waehrend man eingestempelt ist).
   const punches = entries
     .filter((e) => e.entry_type === 'punch')
     .sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
-  for (let i = 1; i < punches.length; i++) {
-    const prev = punches[i - 1];
-    const cur = punches[i];
-    if (prev.punch_dir === 'gehen' && cur.punch_dir === 'kommen') {
-      const gapStart = new Date(prev.start_ts);
-      const gapEnd = new Date(cur.start_ts);
-      if (gapEnd > gapStart && sameDay(gapStart, gapEnd)) {
-        pauses.push({ start: gapStart, end: gapEnd });
-      }
+  let open = null;
+  for (const p of punches) {
+    if (p.punch_dir === 'kommen') open = p;
+    else if (p.punch_dir === 'gehen') open = null;
+  }
+  if (open) { const t = new Date(open.start_ts); segs.push({ start: t, end: t }); }
+
+  const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const byDay = new Map();
+  for (const s of segs) {
+    const k = dayKey(s.start);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(s);
+  }
+
+  const pauses = [];
+  for (const day of byDay.values()) {
+    day.sort((a, b) => a.start - b.start);
+    for (let i = 1; i < day.length; i++) {
+      const gapStart = day[i - 1].end;
+      const gapEnd = day[i].start;
+      if (gapEnd > gapStart) pauses.push({ start: gapStart, end: gapEnd });
     }
   }
   return pauses;
