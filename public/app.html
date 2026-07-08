@@ -42,8 +42,7 @@
           </div>
 
           <div class="timer-controls" style="margin-top:10px">
-            <button class="btn btn-outline" id="pause-gehen-now">⏸ Pause Gehen</button>
-            <button class="btn btn-outline" id="pause-kommen-now">▶ Pause Kommen</button>
+            <button class="btn btn-pause" id="pause-toggle">⏸ Pause starten</button>
           </div>
 
           <div class="punch-add">
@@ -82,6 +81,18 @@
             <label class="field" id="manual-enddate-field" style="display:none">Bis (Datum)
               <input class="input" id="manual-enddate" type="date" />
             </label>
+            <div class="field full" id="daterange-field" style="display:none; position:relative;">
+              <span class="field-label">Zeitraum (von – bis)</span>
+              <button type="button" class="input daterange-trigger" id="daterange-trigger">Zeitraum wählen</button>
+              <div class="daterange-pop" id="daterange-pop" hidden>
+                <div class="dr-head">
+                  <button type="button" id="dr-prev" title="Vorheriger Monat">‹</button>
+                  <span id="dr-title"></span>
+                  <button type="button" id="dr-next" title="Nächster Monat">›</button>
+                </div>
+                <div class="dr-grid" id="dr-grid"></div>
+              </div>
+            </div>
             <label class="field" id="manual-hours-field" style="display:none">Stunden / Tag
               <input class="input" id="manual-hours" type="number" min="0" max="24" step="0.25" value="8" />
             </label>
@@ -183,6 +194,7 @@
   <div class="toast" id="toast"></div>
   <script src="/js/booking-types.js"></script>
   <script src="/js/blocks.js"></script>
+  <script src="/js/daterange.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

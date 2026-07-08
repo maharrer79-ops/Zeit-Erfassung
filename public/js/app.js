@@ -83,6 +83,7 @@ async function init() {
 
   // Buchungsart-Auswahl fuellen (Standard: Kommen)
   fillKindSelect($('manual-kind'));
+  if (window.initDateRange) initDateRange();
   updateManualMode();
 
   await Promise.all([loadProjects(), loadEntries(), loadRunning()]);
@@ -354,13 +355,13 @@ async function loadRunning() {
 function renderTimer() {
   const startBtn = $('start-btn'), stopBtn = $('stop-btn');
   const meta = $('timer-meta'), disp = $('timer');
-  const pauseGehen = $('pause-gehen-now'), pauseKommen = $('pause-kommen-now');
+  const pauseToggle = $('pause-toggle');
   clearInterval(state.tick);
 
-  // Pause-Buttons je nach laufender Pause
-  if (pauseGehen && pauseKommen) {
-    pauseGehen.disabled = !!state.pauseRunning;
-    pauseKommen.disabled = !state.pauseRunning;
+  // Ein Umschalt-Button fuer Pause
+  if (pauseToggle) {
+    pauseToggle.textContent = state.pauseRunning ? '▶ Pause beenden' : '⏸ Pause starten';
+    pauseToggle.classList.toggle('running', !!state.pauseRunning);
   }
 
   const inPause = !!state.pauseRunning;
@@ -419,6 +420,8 @@ function bindEvents() {
 
   $('stop-btn').addEventListener('click', async () => {
     try {
+      // Laufende Pause wird beim Gehen verworfen (zurueckgesetzt)
+      if (state.pauseRunning) await api.del(`/api/entries/${state.pauseRunning.id}`);
       await api.post('/api/entries/stop');
       await Promise.all([loadRunning(), loadEntries()]);
       toast('Gehen gestempelt');
@@ -439,19 +442,13 @@ function bindEvents() {
   $('punch-kommen').addEventListener('click', () => addPunch('kommen'));
   $('punch-gehen').addEventListener('click', () => addPunch('gehen'));
 
-  // Pause starten / beenden -> ergibt eine Pause-Buchung
-  $('pause-gehen-now').addEventListener('click', async () => {
+  // Pause: ein Umschalt-Button (Start/Stop) -> ergibt eine Pause-Buchung
+  $('pause-toggle').addEventListener('click', async () => {
+    const wasRunning = !!state.pauseRunning;
     try {
-      await api.post('/api/entries/pause/start');
+      await api.post(wasRunning ? '/api/entries/pause/stop' : '/api/entries/pause/start');
       await Promise.all([loadRunning(), loadEntries()]);
-      toast('Pause gestartet');
-    } catch (e) { toast(e.message, true); }
-  });
-  $('pause-kommen-now').addEventListener('click', async () => {
-    try {
-      await api.post('/api/entries/pause/stop');
-      await Promise.all([loadRunning(), loadEntries()]);
-      toast('Pause beendet');
+      toast(wasRunning ? 'Pause beendet' : 'Pause gestartet');
     } catch (e) { toast(e.message, true); }
   });
 
@@ -624,13 +621,16 @@ function updateManualMode() {
   f.start.required = !isRange;
   f.end.required = !isRange && !isPunch;
 
-  // Datumsbereich nur bei mehrtägiger Absenz
-  show('manual-enddate-field', isRange);
+  // Datumsbereich (ein Kalender) nur bei mehrtägiger Absenz
+  show('manual-date-field', !isRange);      // einzelnes Datum nur ausserhalb Absenz
+  show('manual-enddate-field', false);      // Ende steckt im Bereich-Picker (verstecktes Feld)
+  show('daterange-field', isRange);
   show('manual-hours-field', isRange);
   show('manual-weekdays-field', isRange);
-  $('manual-enddate').required = isRange;
-  $('manual-date-label').textContent = isRange ? 'Von (Datum)' : 'Datum';
-  if (isRange && !$('manual-enddate').value) $('manual-enddate').value = f.date.value;
+  if (isRange) {
+    if (!$('manual-enddate').value) $('manual-enddate').value = f.date.value;
+    if (window.dateRangeSync) window.dateRangeSync();
+  }
 
   $('manual-submit').textContent = isPunch
     ? (code === 'kommen' ? '▶ Kommen stempeln' : '■ Gehen stempeln')

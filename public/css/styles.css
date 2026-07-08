@@ -118,6 +118,9 @@ button { font-family: inherit; cursor: pointer; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
 .btn-outline:hover { background: #f1f5f9; }
+.btn-pause { background: #f59e0b; color: #fff; }
+.btn-pause:hover { background: #d97706; }
+.btn-pause.running { background: #b45309; }
 .btn-sm { padding: 7px 12px; font-size: 13px; border-radius: 8px; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
@@ -213,6 +216,20 @@ tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-botto
 
 .form-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-inline .full { grid-column: 1 / -1; }
+
+/* Datumsbereich-Kalender */
+.field-label { display: block; font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+.daterange-trigger { text-align: left; cursor: pointer; width: 100%; }
+.daterange-pop { position: absolute; z-index: 40; left: 0; margin-top: 6px; width: 288px; max-width: 92vw;
+  background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px; }
+.dr-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-weight: 700; }
+.dr-head button { border: 1px solid var(--border); background: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; }
+.dr-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.dr-wd { font-size: 11px; color: var(--muted); font-weight: 600; padding: 4px 0; }
+.dr-day { border: none; background: transparent; padding: 8px 0; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text); }
+.dr-day:hover { background: #f1f5f9; }
+.dr-day.in-range { background: #eef2ff; }
+.dr-day.sel { background: var(--primary); color: #fff; font-weight: 700; }
 
 .punch-add { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .punch-add-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
