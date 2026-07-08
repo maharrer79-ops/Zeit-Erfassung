@@ -53,39 +53,66 @@ window.computeBlocks = function (entries) {
   return blocks;
 };
 
-// Pausen eines Tages = Luecken ZWISCHEN den Arbeitsbloecken (zwischen erstem
-// Start und letztem Ende des Tages). Gilt fuer Stempel UND Intervall-Eintraege.
-// Ein noch offenes "Kommen" (aktuell anwesend) zaehlt als Endpunkt mit, damit
-// die Pause schon waehrend des Tages sichtbar ist.
+// Pausen eines Tages = Vereinigung aus
+//  a) ausdruecklichen Pause-Buchungen (zaehlen immer) und
+//  b) Luecken zwischen den Anwesenheits-Zeiten (zwischen erstem Start und
+//     letztem Ende des Tages) – fuer Stempel UND Intervall-Eintraege.
+// Ein noch offenes "Kommen" (aktuell anwesend) zaehlt als Endpunkt mit.
 window.computePauses = function (entries) {
-  const segs = window.computeBlocks(entries).map((b) => ({ start: b.start, end: b.end }));
+  const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
+  // Rohe Anwesenheit (ohne Abzug der Pausen)
+  const presence = [];
+  for (const e of entries) {
+    if (e.entry_type === 'punch' || e.entry_type === 'pause') continue;
+    if (e.end_ts) presence.push({ start: new Date(e.start_ts), end: new Date(e.end_ts) });
+  }
   const punches = entries
     .filter((e) => e.entry_type === 'punch')
     .sort((a, b) => new Date(a.start_ts) - new Date(b.start_ts));
   let open = null;
   for (const p of punches) {
     if (p.punch_dir === 'kommen') open = p;
-    else if (p.punch_dir === 'gehen') open = null;
-  }
-  if (open) { const t = new Date(open.start_ts); segs.push({ start: t, end: t }); }
-
-  const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-  const byDay = new Map();
-  for (const s of segs) {
-    const k = dayKey(s.start);
-    if (!byDay.has(k)) byDay.set(k, []);
-    byDay.get(k).push(s);
-  }
-
-  const pauses = [];
-  for (const day of byDay.values()) {
-    day.sort((a, b) => a.start - b.start);
-    for (let i = 1; i < day.length; i++) {
-      const gapStart = day[i - 1].end;
-      const gapEnd = day[i].start;
-      if (gapEnd > gapStart) pauses.push({ start: gapStart, end: gapEnd });
+    else if (p.punch_dir === 'gehen' && open) {
+      presence.push({ start: new Date(open.start_ts), end: new Date(p.start_ts) });
+      open = null;
     }
   }
-  return pauses;
+  if (open) { const t = new Date(open.start_ts); presence.push({ start: t, end: t }); }
+
+  // Luecken zwischen Anwesenheits-Segmenten je Tag
+  const gaps = [];
+  const segByDay = new Map();
+  for (const s of presence) {
+    const k = dayKey(s.start);
+    if (!segByDay.has(k)) segByDay.set(k, []);
+    segByDay.get(k).push(s);
+  }
+  for (const day of segByDay.values()) {
+    day.sort((a, b) => a.start - b.start);
+    for (let i = 1; i < day.length; i++) {
+      if (day[i].start > day[i - 1].end) gaps.push({ start: day[i - 1].end, end: day[i].start });
+    }
+  }
+
+  // Vereinigung aus Luecken + ausdruecklichen Pausen (ueberlappungsfrei zusammenfassen)
+  const all = gaps.concat(explicitPauses(entries));
+  const byDay = new Map();
+  for (const iv of all) {
+    const k = dayKey(iv.start);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(iv);
+  }
+  const result = [];
+  for (const day of byDay.values()) {
+    day.sort((a, b) => a.start - b.start);
+    let cur = null;
+    for (const iv of day) {
+      if (!cur) { cur = { start: iv.start, end: iv.end }; continue; }
+      if (iv.start <= cur.end) { if (iv.end > cur.end) cur.end = iv.end; }
+      else { result.push(cur); cur = { start: iv.start, end: iv.end }; }
+    }
+    if (cur) result.push(cur);
+  }
+  return result;
 };
