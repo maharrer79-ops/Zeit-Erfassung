@@ -188,8 +188,7 @@ function renderOverview() {
       { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
     box.innerHTML = stat('Gearbeitet', hoursDecimal(todayMs))
       + `<div class="mini-stat"><div class="n" id="ov-pause">${fmtPause(pauseMs)}</div><div class="l">Pause</div></div>`
-      + saldoStat('Saldo', saldoH)
-      + stat('Sitzungen', String(todayBlocks.length));
+      + saldoStat('Saldo', saldoH);
     updatePauseKachel();
   } else {
     // ---------- Monatsansicht ----------
