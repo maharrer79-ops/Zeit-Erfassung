@@ -16,7 +16,7 @@ const api = {
   del: (p) => api.req(p, { method: 'DELETE' }),
 };
 
-let state = { entries: [], projects: [], running: null, tick: null, view: null, ovView: 'tag' };
+let state = { entries: [], projects: [], running: null, pauseRunning: null, tick: null, view: null, ovView: 'tag', todayPauseBaseMs: 0 };
 
 // ---------- Helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -183,12 +183,14 @@ function renderOverview() {
     const pauseMs = pauses.filter((p) => isToday(p.start)).reduce((s, p) => s + (p.end - p.start), 0);
     const saldoH = todayMs / 3_600_000 - sollForWeekday(nowD.getDay());
 
+    state.todayPauseBaseMs = pauseMs;
     $('month-label').textContent = nowD.toLocaleDateString('de-DE',
       { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
     box.innerHTML = stat('Gearbeitet', hoursDecimal(todayMs))
-      + stat('Pause', fmtPause(pauseMs))
+      + `<div class="mini-stat"><div class="n" id="ov-pause">${fmtPause(pauseMs)}</div><div class="l">Pause</div></div>`
       + saldoStat('Saldo', saldoH)
       + stat('Sitzungen', String(todayBlocks.length));
+    updatePauseKachel();
   } else {
     // ---------- Monatsansicht ----------
     const inMonth = (d) => d.getFullYear() === year && d.getMonth() === month;
@@ -344,30 +346,61 @@ function renderStats() {
 
 // ---------- Timer ----------
 async function loadRunning() {
-  const { entry } = await api.get('/api/entries/running');
+  const { entry, pause } = await api.get('/api/entries/running');
   state.running = entry;
+  state.pauseRunning = pause || null;
   renderTimer();
 }
 
 function renderTimer() {
   const startBtn = $('start-btn'), stopBtn = $('stop-btn');
   const meta = $('timer-meta'), disp = $('timer');
+  const pauseGehen = $('pause-gehen-now'), pauseKommen = $('pause-kommen-now');
   clearInterval(state.tick);
 
-  if (state.running) {
-    startBtn.style.display = 'none';
-    stopBtn.style.display = 'block';
-    const started = new Date(state.running.start_ts);
-    const update = () => { disp.textContent = fmtDuration(new Date() - started); };
-    update();
-    state.tick = setInterval(update, 1000);
-    meta.textContent = `Anwesend seit ${fmtTime(state.running.start_ts)}`;
-  } else {
-    startBtn.style.display = 'block';
-    stopBtn.style.display = 'none';
-    disp.textContent = '00:00:00';
-    meta.textContent = 'Bereit zum Einstempeln';
+  // Pause-Buttons je nach laufender Pause
+  if (pauseGehen && pauseKommen) {
+    pauseGehen.disabled = !!state.pauseRunning;
+    pauseKommen.disabled = !state.pauseRunning;
   }
+
+  const inPause = !!state.pauseRunning;
+  const present = !!state.running;
+  startBtn.style.display = present ? 'none' : 'block';
+  stopBtn.style.display = present ? 'block' : 'none';
+
+  const tick = () => {
+    if (inPause) {
+      disp.textContent = fmtDuration(new Date() - new Date(state.pauseRunning.start_ts));
+    } else if (present) {
+      disp.textContent = fmtDuration(new Date() - new Date(state.running.start_ts));
+    } else {
+      disp.textContent = '00:00:00';
+    }
+    updatePauseKachel();
+  };
+
+  if (inPause) meta.textContent = `⏸ In Pause seit ${fmtTime(state.pauseRunning.start_ts)}`;
+  else if (present) meta.textContent = `Anwesend seit ${fmtTime(state.running.start_ts)}`;
+  else meta.textContent = 'Bereit zum Einstempeln';
+
+  tick();
+  if (inPause || present) state.tick = setInterval(tick, 1000);
+}
+
+// Live-Aktualisierung der Pause-Kachel (Basis + laufende Pause bis jetzt)
+function updatePauseKachel() {
+  const el = $('ov-pause');
+  if (!el || state.ovView !== 'tag') return;
+  let ms = state.todayPauseBaseMs || 0;
+  if (state.pauseRunning) {
+    const s = new Date(state.pauseRunning.start_ts);
+    const now = new Date();
+    if (s.getFullYear() === now.getFullYear() && s.getMonth() === now.getMonth() && s.getDate() === now.getDate()) {
+      ms += now - s;
+    }
+  }
+  el.textContent = fmtPause(ms);
 }
 
 // ---------- Events ----------
@@ -407,16 +440,21 @@ function bindEvents() {
   $('punch-kommen').addEventListener('click', () => addPunch('kommen'));
   $('punch-gehen').addEventListener('click', () => addPunch('gehen'));
 
-  // Live-Pause: Gehen jetzt / Kommen jetzt (Lücke dazwischen = Pause)
-  const punchNow = async (dir) => {
+  // Pause starten / beenden -> ergibt eine Pause-Buchung
+  $('pause-gehen-now').addEventListener('click', async () => {
     try {
-      await api.post('/api/entries/punch', { dir, ts: new Date().toISOString() });
+      await api.post('/api/entries/pause/start');
       await Promise.all([loadRunning(), loadEntries()]);
-      toast(dir === 'gehen' ? 'Pause gestartet (Gehen)' : 'Pause beendet (Kommen)');
+      toast('Pause gestartet');
     } catch (e) { toast(e.message, true); }
-  };
-  $('pause-gehen-now').addEventListener('click', () => punchNow('gehen'));
-  $('pause-kommen-now').addEventListener('click', () => punchNow('kommen'));
+  });
+  $('pause-kommen-now').addEventListener('click', async () => {
+    try {
+      await api.post('/api/entries/pause/stop');
+      await Promise.all([loadRunning(), loadEntries()]);
+      toast('Pause beendet');
+    } catch (e) { toast(e.message, true); }
+  });
 
   $('manual-kind').addEventListener('change', updateManualMode);
 

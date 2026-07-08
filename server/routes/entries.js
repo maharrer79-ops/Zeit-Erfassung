@@ -82,10 +82,37 @@ router.get('/', (req, res) => {
   res.json({ entries: rows });
 });
 
-// Aktueller Anwesenheits-Zustand – fuer den Live-Timer
+// Aktueller Anwesenheits-Zustand + laufende Pause – fuer den Live-Timer
 router.get('/running', (req, res) => {
   const open = currentOpen(req.user.id);
-  res.json({ entry: open ? open.row : null });
+  const pause = db
+    .prepare("SELECT * FROM entries WHERE user_id = ? AND entry_type = 'pause' AND end_ts IS NULL ORDER BY start_ts DESC LIMIT 1")
+    .get(req.user.id);
+  res.json({ entry: open ? open.row : null, pause: pause || null });
+});
+
+// Pause starten (offene Pause) – wird beim Beenden zu einem Pause-Eintrag
+router.post('/pause/start', (req, res) => {
+  const running = db
+    .prepare("SELECT id FROM entries WHERE user_id = ? AND entry_type = 'pause' AND end_ts IS NULL")
+    .get(req.user.id);
+  if (running) return res.status(409).json({ error: 'Es läuft bereits eine Pause' });
+  const iso = new Date().toISOString();
+  const info = db
+    .prepare(`INSERT INTO entries (user_id, description, kind_code, kind_label, entry_type, start_ts, end_ts)
+              VALUES (?, '', 'pause', 'Pause', 'pause', ?, NULL)`)
+    .run(req.user.id, iso);
+  res.status(201).json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(info.lastInsertRowid) });
+});
+
+// Pause beenden – schliesst die offene Pause zu einem fertigen Pause-Eintrag
+router.post('/pause/stop', (req, res) => {
+  const running = db
+    .prepare("SELECT * FROM entries WHERE user_id = ? AND entry_type = 'pause' AND end_ts IS NULL ORDER BY start_ts DESC LIMIT 1")
+    .get(req.user.id);
+  if (!running) return res.status(404).json({ error: 'Keine laufende Pause' });
+  db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(new Date().toISOString(), running.id);
+  res.json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(running.id) });
 });
 
 // Kommen (Einstempeln) – erzeugt eine eigene Position
