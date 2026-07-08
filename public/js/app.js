@@ -407,6 +407,17 @@ function bindEvents() {
   $('punch-kommen').addEventListener('click', () => addPunch('kommen'));
   $('punch-gehen').addEventListener('click', () => addPunch('gehen'));
 
+  // Live-Pause: Gehen jetzt / Kommen jetzt (Lücke dazwischen = Pause)
+  const punchNow = async (dir) => {
+    try {
+      await api.post('/api/entries/punch', { dir, ts: new Date().toISOString() });
+      await Promise.all([loadRunning(), loadEntries()]);
+      toast(dir === 'gehen' ? 'Pause gestartet (Gehen)' : 'Pause beendet (Kommen)');
+    } catch (e) { toast(e.message, true); }
+  };
+  $('pause-gehen-now').addEventListener('click', () => punchNow('gehen'));
+  $('pause-kommen-now').addEventListener('click', () => punchNow('kommen'));
+
   $('manual-kind').addEventListener('change', updateManualMode);
 
   $('manual-form').addEventListener('submit', async (ev) => {
