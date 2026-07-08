@@ -410,6 +410,15 @@ function bindEvents() {
     window.location.href = '/';
   });
 
+  $('delete-account-btn').addEventListener('click', async () => {
+    if (!confirm('Konto wirklich löschen?\n\nAlle deine Zeiten und Projekte werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.')) return;
+    if (!confirm('Bist du ganz sicher? Dieser Schritt ist endgültig.')) return;
+    try {
+      await api.del('/api/auth/account');
+      window.location.href = '/';
+    } catch (e) { toast(e.message, true); }
+  });
+
   $('start-btn').addEventListener('click', async () => {
     try {
       await api.post('/api/entries/start');

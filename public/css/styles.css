@@ -118,6 +118,9 @@ button { font-family: inherit; cursor: pointer; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
 .btn-outline:hover { background: #f1f5f9; }
+.app-account { text-align: center; padding: 28px 0 8px; }
+.app-account .btn { color: var(--danger); border-color: #fecaca; }
+.app-account .btn:hover { background: #fef2f2; }
 .btn-pause { background: #f59e0b; color: #fff; }
 .btn-pause:hover { background: #d97706; }
 .btn-pause.running { background: #b45309; }

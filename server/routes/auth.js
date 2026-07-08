@@ -69,6 +69,13 @@ router.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// Konto loeschen (inkl. aller Zeiten und Projekte via ON DELETE CASCADE)
+router.delete('/account', requireAuth, (req, res) => {
+  db.prepare('DELETE FROM users WHERE id = ?').run(req.user.id);
+  clearAuthCookie(res);
+  res.json({ ok: true });
+});
+
 // Aktueller Account
 router.get('/me', requireAuth, (req, res) => {
   const row = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(req.user.id);
