@@ -231,7 +231,7 @@ function shiftMonth(delta) {
 
 function renderEntries() {
   const body = $('entries-body');
-  const rows = state.entries.filter((e) => e.entry_type === 'punch' || e.end_ts);
+  const rows = state.entries.filter((e) => e.entry_type === 'punch' || e.entry_type === 'pause' || e.end_ts);
   if (!rows.length) {
     body.innerHTML = '<tr><td colspan="7" class="empty">Noch keine Zeiten erfasst. Stemple dich ein oder trage manuell ein.</td></tr>';
     return;
@@ -275,6 +275,20 @@ function renderEntryRow(e, muted) {
   {
     // Pause: eigene Zeile mit Dauer
     if (e.entry_type === 'pause') {
+      // Laufende Pause (noch kein Ende) -> "läuft"
+      if (!e.end_ts) {
+        return `<tr>
+          <td>${fmtDate(e.start_ts)}</td>
+          <td>${fmtTime(e.start_ts)} – läuft…</td>
+          <td><span class="badge pause">⏸ Pause</span></td>
+          <td>${muted}</td>
+          <td>${escapeHtml(e.description) || muted}</td>
+          <td class="dur" style="color:var(--muted)">läuft…</td>
+          <td><div class="row-actions">
+            <button class="icon-btn" data-del="${e.id}" title="Abbrechen">🗑️</button>
+          </div></td>
+        </tr>`;
+      }
       const dur = new Date(e.end_ts) - new Date(e.start_ts);
       return `<tr>
         <td>${fmtDate(e.start_ts)}</td>
@@ -410,6 +424,13 @@ function bindEvents() {
     window.location.href = '/';
   });
 
+  $('refresh-btn').addEventListener('click', async () => {
+    try {
+      await Promise.all([loadProjects(), loadEntries(), loadRunning()]);
+      toast('Aktualisiert');
+    } catch (e) { toast(e.message, true); }
+  });
+
   $('delete-account-btn').addEventListener('click', async () => {
     if (!confirm('Konto wirklich löschen?\n\nAlle deine Zeiten und Projekte werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.')) return;
     if (!confirm('Bist du ganz sicher? Dieser Schritt ist endgültig.')) return;
@@ -429,8 +450,8 @@ function bindEvents() {
 
   $('stop-btn').addEventListener('click', async () => {
     try {
-      // Laufende Pause wird beim Gehen verworfen (zurueckgesetzt)
-      if (state.pauseRunning) await api.del(`/api/entries/${state.pauseRunning.id}`);
+      // Laufende Pause beim Gehen beenden (Pausenende setzen)
+      if (state.pauseRunning) await api.post('/api/entries/pause/stop');
       await api.post('/api/entries/stop');
       await Promise.all([loadRunning(), loadEntries()]);
       toast('Gehen gestempelt');

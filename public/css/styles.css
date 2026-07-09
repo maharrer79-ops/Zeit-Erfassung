@@ -332,6 +332,8 @@ tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-botto
   .app-header { padding: 12px 14px; gap: 12px; }
   .app-header .brand { font-size: 17px; white-space: nowrap; }
   .user-box { gap: 8px; margin-left: auto; }
+  #refresh-btn .rb-label { display: none; }
+  #refresh-btn { padding: 8px 10px; }
   .user-box .avatar { width: 32px; height: 32px; font-size: 14px; }
   .user-mail { display: none; }
   .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
