@@ -328,15 +328,15 @@ tr.day-sep td { background: #eef2f6; border-top: 2px solid #cbd5e1; border-botto
   /* Eingaben mind. 16px -> verhindert Auto-Zoom auf iOS */
   .input, label.field input, label.field select { font-size: 16px; }
 
-  /* Kopfzeile kompakt */
-  .app-header { padding: 12px 14px; gap: 12px; }
-  .app-header .brand { font-size: 17px; white-space: nowrap; }
+  /* Kopfzeile kompakt: Version & Name ausblenden, Avatar/Refresh/Abmelden bleiben */
+  .app-header { padding: 10px 12px; gap: 8px; }
+  .app-header .brand { font-size: 16px; white-space: nowrap; }
+  .app-version { display: none; }
   .user-box { gap: 8px; margin-left: auto; }
   #refresh-btn .rb-label { display: none; }
   #refresh-btn { padding: 8px 10px; }
-  .user-box .avatar { width: 32px; height: 32px; font-size: 14px; }
-  .user-mail { display: none; }
-  .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-box .avatar { width: 30px; height: 30px; font-size: 13px; }
+  .user-mail, .user-name { display: none; }
 
   /* Statistik */
   .stats { gap: 8px; }
