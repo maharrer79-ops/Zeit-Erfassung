@@ -452,11 +452,9 @@ function bindEvents() {
     window.location.href = '/';
   });
 
-  $('refresh-btn').addEventListener('click', async () => {
-    try {
-      await Promise.all([loadProjects(), loadEntries(), loadRunning()]);
-      toast('Aktualisiert');
-    } catch (e) { toast(e.message, true); }
+  $('refresh-btn').addEventListener('click', () => {
+    // Echtes Neuladen der Seite (holt auch aktualisierten Code frisch)
+    window.location.reload();
   });
 
   $('delete-account-btn').addEventListener('click', async () => {
