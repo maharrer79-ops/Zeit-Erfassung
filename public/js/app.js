@@ -143,7 +143,7 @@ const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
 function sollForWeekday(wd) {
-  const sollBase = parseFloat(localStorage.getItem('zeitwerk_soll') ?? '8') || 8;
+  const sollBase = parseFloat(localStorage.getItem('zeitwerk_soll') ?? '7.7') || 7.7;
   const sollFrStored = localStorage.getItem('zeitwerk_soll_fr');
   const sollFr = sollFrStored !== null ? (parseFloat(sollFrStored) || 0) : sollBase;
   if (wd === 0 || wd === 6) return 0;

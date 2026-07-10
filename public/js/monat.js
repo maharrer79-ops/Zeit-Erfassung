@@ -36,7 +36,7 @@ async function init() {
     state.user = me.user;
   } catch { return; }
 
-  state.soll = parseFloat(localStorage.getItem(SOLL_KEY) ?? '8') || 8;
+  state.soll = parseFloat(localStorage.getItem(SOLL_KEY) ?? '7.7') || 7.7;
   const frStored = localStorage.getItem(SOLL_FR_KEY);
   state.sollFriday = frStored !== null ? (parseFloat(frStored) || 0) : state.soll;
   $('soll-input').value = state.soll;
