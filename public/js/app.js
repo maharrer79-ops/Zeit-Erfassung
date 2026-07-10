@@ -173,8 +173,36 @@ function renderOverview() {
   const box = $('mini-stats');
   const blocks = computeBlocks(state.entries);
   const pauses = computePauses(state.entries);
+  const fmtDay = (d) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`;
 
-  if (!monatView) {
+  if (state.ovView === 'woche') {
+    // ---------- Wochenansicht (aktuelle Woche Mo–So) ----------
+    const nowD = new Date();
+    const dow = (nowD.getDay() + 6) % 7; // Montag = 0
+    const weekStart = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() - dow);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7); // exklusiv
+    const inWeek = (d) => d >= weekStart && d < weekEnd;
+    const weekBlocks = blocks.filter((b) => inWeek(b.start));
+    const totalMs = weekBlocks.reduce((s, b) => s + (b.end - b.start), 0);
+    const pauseMs = pauses.filter((p) => inWeek(p.start)).reduce((s, p) => s + (p.end - p.start), 0);
+    const workDays = new Set(weekBlocks.map((b) => b.start.getDate())).size;
+
+    const todayNum = nowD.getFullYear() * 10000 + nowD.getMonth() * 100 + nowD.getDate();
+    let sollH = 0;
+    for (let i = 0; i < 7; i++) {
+      const dt = new Date(weekStart); dt.setDate(weekStart.getDate() + i);
+      const dayNum = dt.getFullYear() * 10000 + dt.getMonth() * 100 + dt.getDate();
+      if (dayNum <= todayNum) sollH += sollForWeekday(dt.getDay());
+    }
+    const saldoH = totalMs / 3_600_000 - sollH;
+
+    const lastDay = new Date(weekEnd); lastDay.setDate(weekEnd.getDate() - 1);
+    $('month-label').textContent = `${fmtDay(weekStart)}–${fmtDay(lastDay)}`;
+    box.innerHTML = stat('Gesamt', hoursDecimal(totalMs))
+      + stat('Arbeitstage', String(workDays))
+      + stat('Pause', fmtPause(pauseMs))
+      + saldoStat('Saldo', saldoH);
+  } else if (!monatView) {
     // ---------- Tagesansicht (heute) ----------
     const nowD = new Date();
     const isToday = (d) => d.getFullYear() === nowD.getFullYear()
