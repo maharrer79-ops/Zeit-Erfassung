@@ -91,13 +91,16 @@ router.get('/running', (req, res) => {
   res.json({ entry: open ? open.row : null, pause: pause || null });
 });
 
-// Pause starten (offene Pause) – wird beim Beenden zu einem Pause-Eintrag
+// Pause starten (offene Pause) – wird beim Beenden zu einem Pause-Eintrag.
+// Optionaler ts im Body erlaubt das Nachtragen zu einem gewaehlten Zeitpunkt.
 router.post('/pause/start', (req, res) => {
   const running = db
     .prepare("SELECT id FROM entries WHERE user_id = ? AND entry_type = 'pause' AND end_ts IS NULL")
     .get(req.user.id);
   if (running) return res.status(409).json({ error: 'Es läuft bereits eine Pause' });
-  const iso = new Date().toISOString();
+  const ts = req.body?.ts;
+  if (ts && !isValidDate(ts)) return res.status(400).json({ error: 'Ungueltiger Zeitpunkt' });
+  const iso = ts ? new Date(ts).toISOString() : new Date().toISOString();
   const info = db
     .prepare(`INSERT INTO entries (user_id, description, kind_code, kind_label, entry_type, start_ts, end_ts)
               VALUES (?, '', 'pause', 'Pause', 'pause', ?, NULL)`)
@@ -105,13 +108,19 @@ router.post('/pause/start', (req, res) => {
   res.status(201).json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(info.lastInsertRowid) });
 });
 
-// Pause beenden – schliesst die offene Pause zu einem fertigen Pause-Eintrag
+// Pause beenden – schliesst die offene Pause. Optionaler ts fuers Nachtragen.
 router.post('/pause/stop', (req, res) => {
   const running = db
     .prepare("SELECT * FROM entries WHERE user_id = ? AND entry_type = 'pause' AND end_ts IS NULL ORDER BY start_ts DESC LIMIT 1")
     .get(req.user.id);
   if (!running) return res.status(404).json({ error: 'Keine laufende Pause' });
-  db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(new Date().toISOString(), running.id);
+  const ts = req.body?.ts;
+  if (ts && !isValidDate(ts)) return res.status(400).json({ error: 'Ungueltiger Zeitpunkt' });
+  const endIso = ts ? new Date(ts).toISOString() : new Date().toISOString();
+  if (new Date(endIso) <= new Date(running.start_ts)) {
+    return res.status(400).json({ error: 'Das Pausenende muss nach dem Pausenbeginn liegen' });
+  }
+  db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(endIso, running.id);
   res.json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(running.id) });
 });
 

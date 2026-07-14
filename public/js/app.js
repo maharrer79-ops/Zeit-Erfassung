@@ -498,6 +498,21 @@ function bindEvents() {
   $('punch-kommen').addEventListener('click', () => addPunch('kommen'));
   $('punch-gehen').addEventListener('click', () => addPunch('gehen'));
 
+  // Pause nachtragen (Beginn/Ende einzeln zu einem gewaehlten Zeitpunkt)
+  const addPausePunch = async (which) => {
+    const date = $('punch-date').value;
+    const time = $('punch-time').value;
+    if (!date || !time) { toast('Bitte Datum und Uhrzeit angeben', true); return; }
+    const ts = combineLocal(date, time);
+    try {
+      await api.post(which === 'start' ? '/api/entries/pause/start' : '/api/entries/pause/stop', { ts });
+      await Promise.all([loadRunning(), loadEntries()]);
+      toast(which === 'start' ? 'Pausenbeginn nachgetragen' : 'Pausenende nachgetragen');
+    } catch (e) { toast(e.message, true); }
+  };
+  $('punch-pause-start').addEventListener('click', () => addPausePunch('start'));
+  $('punch-pause-ende').addEventListener('click', () => addPausePunch('ende'));
+
   // Pause: ein Umschalt-Button (Start/Stop) -> ergibt eine Pause-Buchung
   $('pause-toggle').addEventListener('click', async () => {
     const wasRunning = !!state.pauseRunning;
