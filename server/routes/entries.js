@@ -18,6 +18,14 @@ function isValidDate(v) {
   return v && !Number.isNaN(new Date(v).getTime());
 }
 
+// Aktuelle Zeit auf die naechste ganze Minute gerundet (>=30 Sek. aufrunden)
+function nowRoundedMinuteISO() {
+  const dt = new Date();
+  if (dt.getSeconds() >= 30) dt.setMinutes(dt.getMinutes() + 1);
+  dt.setSeconds(0, 0);
+  return dt.toISOString();
+}
+
 // Aktuell "offener" Zustand des Nutzers:
 //  - ein noch laufender (alter) Intervall-Eintrag ODER
 //  - der letzte Stempel ist ein "Kommen" (Person ist anwesend)
@@ -129,7 +137,8 @@ router.post('/start', (req, res) => {
   if (currentOpen(req.user.id)) {
     return res.status(409).json({ error: 'Du bist bereits eingestempelt' });
   }
-  const entry = insertPunch(req.user.id, 'kommen', new Date().toISOString());
+  // Live-Stempel auf ganze Minuten runden (keine Sekunden)
+  const entry = insertPunch(req.user.id, 'kommen', nowRoundedMinuteISO());
   res.status(201).json({ entry });
 });
 
@@ -138,13 +147,14 @@ router.post('/stop', (req, res) => {
   const open = currentOpen(req.user.id);
   if (!open) return res.status(404).json({ error: 'Du bist nicht eingestempelt' });
 
+  const iso = nowRoundedMinuteISO(); // Live-Stempel auf ganze Minuten runden
   // Alten laufenden Intervall-Eintrag noch sauber schliessen
   if (open.type === 'interval') {
-    db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(new Date().toISOString(), open.row.id);
+    db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(iso, open.row.id);
     const entry = db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(open.row.id);
     return res.json({ entry });
   }
-  const entry = insertPunch(req.user.id, 'gehen', new Date().toISOString());
+  const entry = insertPunch(req.user.id, 'gehen', iso);
   res.json({ entry });
 });
 
