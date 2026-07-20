@@ -38,17 +38,11 @@
           <div class="timer-display" id="timer">00:00:00</div>
           <div class="timer-meta" id="timer-meta">Bereit zum Einstempeln</div>
 
-          <label class="field" id="stamp-kind-field" style="margin-bottom:10px">Art
-            <select class="input" id="stamp-kind">
-              <option value="">Anwesend</option>
-              <option value="mobiles Arbeiten">mobiles Arbeiten</option>
-            </select>
-          </label>
-
           <div class="timer-stack">
             <button class="btn btn-success" id="start-btn">▶ Kommen</button>
             <button class="btn btn-danger" id="stop-btn" style="display:none">■ Gehen</button>
             <button class="btn btn-pause" id="pause-toggle">⏸ Pause starten</button>
+            <button class="btn btn-mobile" id="mobile-toggle">🏠 mobiles Arbeiten – Kommen</button>
           </div>
 
           <div class="punch-add">
@@ -64,6 +58,10 @@
             <div class="punch-add-row" style="margin-top:8px">
               <button class="btn btn-outline btn-sm" id="punch-pause-start">+ Pause Start</button>
               <button class="btn btn-outline btn-sm" id="punch-pause-ende">+ Pause Ende</button>
+            </div>
+            <div class="punch-add-row" style="margin-top:8px">
+              <button class="btn btn-outline btn-sm" id="punch-mobile-start">+ mobiles Arbeiten Start</button>
+              <button class="btn btn-outline btn-sm" id="punch-mobile-ende">+ mobiles Arbeiten Ende</button>
             </div>
           </div>
         </div>

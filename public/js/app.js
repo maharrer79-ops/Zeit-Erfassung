@@ -16,7 +16,7 @@ const api = {
   del: (p) => api.req(p, { method: 'DELETE' }),
 };
 
-let state = { entries: [], projects: [], running: null, pauseRunning: null, tick: null, view: null, ovView: 'tag', todayPauseBaseMs: 0 };
+let state = { entries: [], projects: [], running: null, pauseRunning: null, mobileRunning: null, tick: null, view: null, ovView: 'tag', todayPauseBaseMs: 0 };
 
 // ---------- Helpers ----------
 const $ = (id) => document.getElementById(id);
@@ -388,9 +388,10 @@ function renderStats() {
 
 // ---------- Timer ----------
 async function loadRunning() {
-  const { entry, pause } = await api.get('/api/entries/running');
+  const { entry, pause, mobile } = await api.get('/api/entries/running');
   state.running = entry;
   state.pauseRunning = pause || null;
+  state.mobileRunning = mobile || null;
   renderTimer();
 }
 
@@ -398,24 +399,33 @@ function renderTimer() {
   const startBtn = $('start-btn'), stopBtn = $('stop-btn');
   const meta = $('timer-meta'), disp = $('timer');
   const pauseToggle = $('pause-toggle');
+  const mobileToggle = $('mobile-toggle');
   clearInterval(state.tick);
 
-  // Ein Umschalt-Button fuer Pause
+  const inPause = !!state.pauseRunning;
+  const inMobile = !!state.mobileRunning;
+  const present = !!state.running;
+
+  // Umschalt-Button fuer Pause
   if (pauseToggle) {
-    pauseToggle.textContent = state.pauseRunning ? '▶ Pause beenden' : '⏸ Pause starten';
-    pauseToggle.classList.toggle('running', !!state.pauseRunning);
+    pauseToggle.textContent = inPause ? '▶ Pause beenden' : '⏸ Pause starten';
+    pauseToggle.classList.toggle('running', inPause);
+  }
+  // Umschalt-Button fuer mobiles Arbeiten (nur wenn nicht anwesend)
+  if (mobileToggle) {
+    mobileToggle.textContent = inMobile ? '■ mobiles Arbeiten – Gehen' : '🏠 mobiles Arbeiten – Kommen';
+    mobileToggle.classList.toggle('running', inMobile);
+    mobileToggle.style.display = present ? 'none' : '';
   }
 
-  const inPause = !!state.pauseRunning;
-  const present = !!state.running;
-  startBtn.style.display = present ? 'none' : 'block';
+  // Kommen nur wenn frei; Gehen nur wenn anwesend
+  startBtn.style.display = (present || inMobile) ? 'none' : 'block';
   stopBtn.style.display = present ? 'block' : 'none';
-  // Art-Auswahl nur relevant beim Einstempeln
-  const kindField = $('stamp-kind-field');
-  if (kindField) kindField.style.display = present ? 'none' : '';
 
   const tick = () => {
-    if (inPause) {
+    if (inMobile) {
+      disp.textContent = fmtDuration(new Date() - new Date(state.mobileRunning.start_ts));
+    } else if (inPause) {
       disp.textContent = fmtDuration(new Date() - new Date(state.pauseRunning.start_ts));
     } else if (present) {
       disp.textContent = fmtDuration(new Date() - new Date(state.running.start_ts));
@@ -425,12 +435,13 @@ function renderTimer() {
     updatePauseKachel();
   };
 
-  if (inPause) meta.textContent = `⏸ In Pause seit ${fmtTime(state.pauseRunning.start_ts)}`;
+  if (inMobile) meta.textContent = `🏠 mobiles Arbeiten seit ${fmtTime(state.mobileRunning.start_ts)}`;
+  else if (inPause) meta.textContent = `⏸ In Pause seit ${fmtTime(state.pauseRunning.start_ts)}`;
   else if (present) meta.textContent = `Anwesend seit ${fmtTime(state.running.start_ts)}`;
   else meta.textContent = 'Bereit zum Einstempeln';
 
   tick();
-  if (inPause || present) state.tick = setInterval(tick, 1000);
+  if (inMobile || inPause || present) state.tick = setInterval(tick, 1000);
 }
 
 // Live-Aktualisierung der Pause-Kachel (Basis + laufende Pause bis jetzt)
@@ -471,7 +482,7 @@ function bindEvents() {
 
   $('start-btn').addEventListener('click', async () => {
     try {
-      await api.post('/api/entries/start', { label: $('stamp-kind').value });
+      await api.post('/api/entries/start');
       await Promise.all([loadRunning(), loadEntries()]);
       toast('Kommen gestempelt');
     } catch (e) { toast(e.message, true); }
@@ -516,13 +527,42 @@ function bindEvents() {
   $('punch-pause-start').addEventListener('click', () => addPausePunch('start'));
   $('punch-pause-ende').addEventListener('click', () => addPausePunch('ende'));
 
-  // Pause: ein Umschalt-Button (Start/Stop) -> ergibt eine Pause-Buchung
+  // Mobiles Arbeiten nachtragen (Beginn/Ende einzeln zu einem gewaehlten Zeitpunkt)
+  const addMobilePunch = async (which) => {
+    const date = $('punch-date').value;
+    const time = $('punch-time').value;
+    if (!date || !time) { toast('Bitte Datum und Uhrzeit angeben', true); return; }
+    const ts = combineLocal(date, time);
+    try {
+      await api.post(which === 'start' ? '/api/entries/mobile/start' : '/api/entries/mobile/stop', { ts });
+      await Promise.all([loadRunning(), loadEntries()]);
+      toast(which === 'start' ? 'Mobiles Arbeiten – Beginn nachgetragen' : 'Mobiles Arbeiten – Ende nachgetragen');
+    } catch (e) { toast(e.message, true); }
+  };
+  $('punch-mobile-start').addEventListener('click', () => addMobilePunch('start'));
+  $('punch-mobile-ende').addEventListener('click', () => addMobilePunch('ende'));
+
+  // Pause: ein Umschalt-Button (Start/Stop) -> ergibt eine Pause-Buchung.
+  // Laufendes mobiles Arbeiten wird dabei automatisch beendet (mobiles Arbeiten – Gehen).
   $('pause-toggle').addEventListener('click', async () => {
     const wasRunning = !!state.pauseRunning;
     try {
+      if (!wasRunning && state.mobileRunning) await api.post('/api/entries/mobile/stop');
       await api.post(wasRunning ? '/api/entries/pause/stop' : '/api/entries/pause/start');
       await Promise.all([loadRunning(), loadEntries()]);
       toast(wasRunning ? 'Pause beendet' : 'Pause gestartet');
+    } catch (e) { toast(e.message, true); }
+  });
+
+  // Mobiles Arbeiten: ein Umschalt-Button (Kommen/Gehen) -> ergibt EINEN Eintrag (Buchungsart 0406)
+  $('mobile-toggle').addEventListener('click', async () => {
+    const wasRunning = !!state.mobileRunning;
+    try {
+      // Laufende Pause beim Beenden des mobilen Arbeitens sauber schliessen
+      if (wasRunning && state.pauseRunning) await api.post('/api/entries/pause/stop');
+      await api.post(wasRunning ? '/api/entries/mobile/stop' : '/api/entries/mobile/start');
+      await Promise.all([loadRunning(), loadEntries()]);
+      toast(wasRunning ? 'Mobiles Arbeiten beendet' : 'Mobiles Arbeiten gestartet');
     } catch (e) { toast(e.message, true); }
   });
 

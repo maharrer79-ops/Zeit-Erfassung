@@ -124,6 +124,9 @@ button { font-family: inherit; cursor: pointer; }
 .btn-pause { background: #f59e0b; color: #fff; }
 .btn-pause:hover { background: #d97706; }
 .btn-pause.running { background: #b45309; }
+.btn-mobile { background: #16a34a; color: #fff; }
+.btn-mobile:hover { background: #15803d; }
+.btn-mobile.running { background: #b91c1c; }
 .btn-sm { padding: 7px 12px; font-size: 13px; border-radius: 8px; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 

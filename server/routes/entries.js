@@ -90,13 +90,56 @@ router.get('/', (req, res) => {
   res.json({ entries: rows });
 });
 
-// Aktueller Anwesenheits-Zustand + laufende Pause – fuer den Live-Timer
+// Offene (laufende) mobiles-Arbeiten-Sitzung des Nutzers
+function openMobile(userId) {
+  return db
+    .prepare("SELECT * FROM entries WHERE user_id = ? AND entry_type = 'mobile' AND end_ts IS NULL ORDER BY start_ts DESC LIMIT 1")
+    .get(userId);
+}
+
+// Aktueller Anwesenheits-Zustand + laufende Pause + laufendes mobiles Arbeiten – fuer den Live-Timer
 router.get('/running', (req, res) => {
   const open = currentOpen(req.user.id);
   const pause = db
     .prepare("SELECT * FROM entries WHERE user_id = ? AND entry_type = 'pause' AND end_ts IS NULL ORDER BY start_ts DESC LIMIT 1")
     .get(req.user.id);
-  res.json({ entry: open ? open.row : null, pause: pause || null });
+  res.json({ entry: open ? open.row : null, pause: pause || null, mobile: openMobile(req.user.id) || null });
+});
+
+// Mobiles Arbeiten starten (laeuft live) – wird beim Beenden zu EINEM Eintrag (Buchungsart 0406).
+// Optionaler ts im Body erlaubt das Nachtragen; live wird auf ganze Minuten gerundet.
+router.post('/mobile/start', (req, res) => {
+  if (openMobile(req.user.id)) return res.status(409).json({ error: 'Mobiles Arbeiten läuft bereits' });
+  if (currentOpen(req.user.id)) return res.status(409).json({ error: 'Du bist bereits eingestempelt – bitte zuerst Gehen stempeln' });
+  const ts = req.body?.ts;
+  if (ts && !isValidDate(ts)) return res.status(400).json({ error: 'Ungueltiger Zeitpunkt' });
+  const iso = ts ? new Date(ts).toISOString() : nowRoundedMinuteISO();
+  const info = db
+    .prepare(`INSERT INTO entries (user_id, description, kind_code, kind_label, entry_type, start_ts, end_ts)
+              VALUES (?, '', '0406', 'mobiles Arbeiten', 'mobile', ?, NULL)`)
+    .run(req.user.id, iso);
+  res.status(201).json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(info.lastInsertRowid) });
+});
+
+// Mobiles Arbeiten beenden – schliesst die offene Sitzung zu einem Eintrag. Optionaler ts fuers Nachtragen.
+router.post('/mobile/stop', (req, res) => {
+  const running = openMobile(req.user.id);
+  if (!running) return res.status(404).json({ error: 'Kein laufendes mobiles Arbeiten' });
+  const ts = req.body?.ts;
+  if (ts && !isValidDate(ts)) return res.status(400).json({ error: 'Ungueltiger Zeitpunkt' });
+  const start = new Date(running.start_ts);
+  let endIso;
+  if (ts) {
+    // Nachgetragenes Ende: strikt nach dem Beginn
+    endIso = new Date(ts).toISOString();
+    if (new Date(endIso) <= start) return res.status(400).json({ error: 'Das Ende muss nach dem Beginn liegen' });
+  } else {
+    // Live beenden: auf ganze Minute gerundet; sehr kurze Sitzung (gleiche Minute) = mind. 1 Minute
+    endIso = nowRoundedMinuteISO();
+    if (new Date(endIso) <= start) endIso = new Date(+start + 60_000).toISOString();
+  }
+  db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(endIso, running.id);
+  res.json({ entry: db.prepare(`${SELECT_ENTRY} WHERE e.id = ?`).get(running.id) });
 });
 
 // Pause starten (offene Pause) – wird beim Beenden zu einem Pause-Eintrag.
@@ -137,9 +180,11 @@ router.post('/start', (req, res) => {
   if (currentOpen(req.user.id)) {
     return res.status(409).json({ error: 'Du bist bereits eingestempelt' });
   }
-  // Live-Stempel auf ganze Minuten runden (keine Sekunden); optionale Art (z.B. mobiles Arbeiten)
-  const label = String(req.body?.label || '').trim().slice(0, 60);
-  const entry = insertPunch(req.user.id, 'kommen', nowRoundedMinuteISO(), label);
+  if (openMobile(req.user.id)) {
+    return res.status(409).json({ error: 'Mobiles Arbeiten läuft – bitte zuerst beenden' });
+  }
+  // Live-Stempel auf ganze Minuten runden (keine Sekunden)
+  const entry = insertPunch(req.user.id, 'kommen', nowRoundedMinuteISO());
   res.status(201).json({ entry });
 });
 
