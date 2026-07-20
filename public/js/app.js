@@ -259,7 +259,7 @@ function shiftMonth(delta) {
 
 function renderEntries() {
   const body = $('entries-body');
-  const rows = state.entries.filter((e) => e.entry_type === 'punch' || e.entry_type === 'pause' || e.end_ts);
+  const rows = state.entries.filter((e) => e.entry_type === 'punch' || e.entry_type === 'pause' || e.entry_type === 'mobile' || e.end_ts);
   if (!rows.length) {
     body.innerHTML = '<tr><td colspan="7" class="empty">Noch keine Zeiten erfasst. Stemple dich ein oder trage manuell ein.</td></tr>';
     return;
@@ -328,6 +328,20 @@ function renderEntryRow(e, muted) {
         <td><div class="row-actions">
           <button class="icon-btn" data-edit="${e.id}" title="Bearbeiten">✏️</button>
           <button class="icon-btn" data-del="${e.id}" title="Löschen">🗑️</button>
+        </div></td>
+      </tr>`;
+    }
+    // Laufendes mobiles Arbeiten (noch kein Ende) -> "läuft"
+    if (e.entry_type === 'mobile' && !e.end_ts) {
+      return `<tr>
+        <td>${fmtDate(e.start_ts)}</td>
+        <td>${fmtTime(e.start_ts)} – läuft…</td>
+        <td>${kindBadge('0406', 'mobiles Arbeiten')}</td>
+        <td>${muted}</td>
+        <td>${escapeHtml(e.description) || muted}</td>
+        <td class="dur" style="color:var(--muted)">läuft…</td>
+        <td><div class="row-actions">
+          <button class="icon-btn" data-del="${e.id}" title="Abbrechen">🗑️</button>
         </div></td>
       </tr>`;
     }
@@ -546,11 +560,12 @@ function bindEvents() {
   // Laufendes mobiles Arbeiten wird dabei automatisch beendet (mobiles Arbeiten – Gehen).
   $('pause-toggle').addEventListener('click', async () => {
     const wasRunning = !!state.pauseRunning;
+    const hadMobile = !wasRunning && !!state.mobileRunning;
     try {
-      if (!wasRunning && state.mobileRunning) await api.post('/api/entries/mobile/stop');
+      // Server beendet ein laufendes mobiles Arbeiten beim Pause-Start automatisch
       await api.post(wasRunning ? '/api/entries/pause/stop' : '/api/entries/pause/start');
       await Promise.all([loadRunning(), loadEntries()]);
-      toast(wasRunning ? 'Pause beendet' : 'Pause gestartet');
+      toast(wasRunning ? 'Pause beendet' : (hadMobile ? 'Mobiles Arbeiten beendet · Pause gestartet' : 'Pause gestartet'));
     } catch (e) { toast(e.message, true); }
   });
 

@@ -152,6 +152,13 @@ router.post('/pause/start', (req, res) => {
   const ts = req.body?.ts;
   if (ts && !isValidDate(ts)) return res.status(400).json({ error: 'Ungueltiger Zeitpunkt' });
   const iso = ts ? new Date(ts).toISOString() : new Date().toISOString();
+  // Laufendes mobiles Arbeiten automatisch beenden (mobiles Arbeiten – Gehen setzen)
+  const mob = openMobile(req.user.id);
+  if (mob) {
+    let mEnd = ts ? new Date(ts).toISOString() : nowRoundedMinuteISO();
+    if (new Date(mEnd) <= new Date(mob.start_ts)) mEnd = new Date(+new Date(mob.start_ts) + 60_000).toISOString();
+    db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(mEnd, mob.id);
+  }
   const info = db
     .prepare(`INSERT INTO entries (user_id, description, kind_code, kind_label, entry_type, start_ts, end_ts)
               VALUES (?, '', 'pause', 'Pause', 'pause', ?, NULL)`)
