@@ -37,12 +37,17 @@
           <h3>⏱️ Stempeluhr</h3>
           <div class="timer-display" id="timer">00:00:00</div>
           <div class="timer-meta" id="timer-meta">Bereit zum Einstempeln</div>
-          <div class="timer-controls">
+
+          <label class="field" id="stamp-kind-field" style="margin-bottom:10px">Art
+            <select class="input" id="stamp-kind">
+              <option value="">Anwesend</option>
+              <option value="mobiles Arbeiten">mobiles Arbeiten</option>
+            </select>
+          </label>
+
+          <div class="timer-stack">
             <button class="btn btn-success" id="start-btn">▶ Kommen</button>
             <button class="btn btn-danger" id="stop-btn" style="display:none">■ Gehen</button>
-          </div>
-
-          <div class="timer-controls" style="margin-top:10px">
             <button class="btn btn-pause" id="pause-toggle">⏸ Pause starten</button>
           </div>
 
@@ -51,6 +56,8 @@
             <div class="punch-add-row">
               <input class="input" id="punch-date" type="date" />
               <input class="input" id="punch-time" type="time" step="1" />
+            </div>
+            <div class="punch-add-row" style="margin-top:8px">
               <button class="btn btn-outline btn-sm" id="punch-kommen">+ Kommen</button>
               <button class="btn btn-outline btn-sm" id="punch-gehen">+ Gehen</button>
             </div>

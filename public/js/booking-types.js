@@ -18,6 +18,7 @@ window.BOOKING_TYPES = [
   { code: 'gehen', label: 'Gehen (Zeitpunkt)', punch: true },
   // Haeufige Buchungsarten (oben, vor der Trennlinie)
   { code: '0406', label: 'mobiles Arbeiten', top: true },
+  { code: '0700', label: 'Arztbesuch', top: true },
   { code: '0800', label: 'Dienstreise', top: true },
   { code: '0810', label: 'Lenkzeit', top: true },
   { code: '9800', label: 'Passive Reisezeit', top: true },
@@ -46,6 +47,7 @@ window.KIND_COLORS = {
   '0412': { bg: '#ede9fe', fg: '#5b21b6' }, // Betriebsratsausbildung
   '0400': { bg: '#fae8ff', fg: '#86198f' }, // Schule
   '0406': { bg: '#dcfce7', fg: '#166534' }, // mobiles Arbeiten
+  '0700': { bg: '#fee2e2', fg: '#b91c1c' }, // Arztbesuch
   '0800': { bg: '#cffafe', fg: '#155e75' }, // Dienstreise
   '0810': { bg: '#ccfbf1', fg: '#115e59' }, // Lenkzeit
   '0900': { bg: '#ffedd5', fg: '#9a3412' }, // Gleittag

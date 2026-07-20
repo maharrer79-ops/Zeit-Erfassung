@@ -410,6 +410,9 @@ function renderTimer() {
   const present = !!state.running;
   startBtn.style.display = present ? 'none' : 'block';
   stopBtn.style.display = present ? 'block' : 'none';
+  // Art-Auswahl nur relevant beim Einstempeln
+  const kindField = $('stamp-kind-field');
+  if (kindField) kindField.style.display = present ? 'none' : '';
 
   const tick = () => {
     if (inPause) {
@@ -468,7 +471,7 @@ function bindEvents() {
 
   $('start-btn').addEventListener('click', async () => {
     try {
-      await api.post('/api/entries/start');
+      await api.post('/api/entries/start', { label: $('stamp-kind').value });
       await Promise.all([loadRunning(), loadEntries()]);
       toast('Kommen gestempelt');
     } catch (e) { toast(e.message, true); }

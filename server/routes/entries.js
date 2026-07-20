@@ -137,8 +137,9 @@ router.post('/start', (req, res) => {
   if (currentOpen(req.user.id)) {
     return res.status(409).json({ error: 'Du bist bereits eingestempelt' });
   }
-  // Live-Stempel auf ganze Minuten runden (keine Sekunden)
-  const entry = insertPunch(req.user.id, 'kommen', nowRoundedMinuteISO());
+  // Live-Stempel auf ganze Minuten runden (keine Sekunden); optionale Art (z.B. mobiles Arbeiten)
+  const label = String(req.body?.label || '').trim().slice(0, 60);
+  const entry = insertPunch(req.user.id, 'kommen', nowRoundedMinuteISO(), label);
   res.status(201).json({ entry });
 });
 
