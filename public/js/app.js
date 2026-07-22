@@ -175,6 +175,28 @@ function renderOverview() {
   const pauses = computePauses(state.entries);
   const fmtDay = (d) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`;
 
+  // Pro-Tag getrennt: echte Arbeit vs. Abwesenheit (Urlaub/Gleittag).
+  // Abwesenheit erfuellt das Soll, erzeugt aber keine Plus-Stunden.
+  const dNum = (d) => d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
+  const workedByDay = new Map(), absenceByDay = new Map();
+  for (const b of blocks) {
+    const key = dNum(b.start);
+    const map = window.isAbsenceBlock(b) ? absenceByDay : workedByDay;
+    map.set(key, (map.get(key) || 0) + (b.end - b.start));
+  }
+  const nowNum = dNum(new Date());
+  const workedMsOn = (d) => workedByDay.get(dNum(d)) || 0;
+  // Saldo eines Tages: Arbeit + min(Abwesenheit, Soll) - Soll
+  const daySaldoH = (d) => {
+    const wd = d.getDay();
+    const isWeekend = wd === 0 || wd === 6;
+    const workedH = (workedByDay.get(dNum(d)) || 0) / 3_600_000;
+    const absenceH = (absenceByDay.get(dNum(d)) || 0) / 3_600_000;
+    const hasBooking = (workedByDay.get(dNum(d)) || 0) + (absenceByDay.get(dNum(d)) || 0) > 0;
+    const soll = (!isWeekend && (dNum(d) <= nowNum || hasBooking)) ? sollForWeekday(wd) : 0;
+    return workedH + Math.min(absenceH, soll) - soll;
+  };
+
   if (state.ovView === 'woche') {
     // ---------- Wochenansicht (aktuelle Woche Mo–So) ----------
     const nowD = new Date();
@@ -182,19 +204,17 @@ function renderOverview() {
     const weekStart = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() - dow);
     const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7); // exklusiv
     const inWeek = (d) => d >= weekStart && d < weekEnd;
-    const weekBlocks = blocks.filter((b) => inWeek(b.start));
-    const totalMs = weekBlocks.reduce((s, b) => s + (b.end - b.start), 0);
+    // Nur echte Arbeit zaehlt als "gearbeitet" (Abwesenheit ausgenommen)
+    const weekWorked = blocks.filter((b) => inWeek(b.start) && !window.isAbsenceBlock(b));
+    const totalMs = weekWorked.reduce((s, b) => s + (b.end - b.start), 0);
     const pauseMs = pauses.filter((p) => inWeek(p.start)).reduce((s, p) => s + (p.end - p.start), 0);
-    const workDays = new Set(weekBlocks.map((b) => b.start.getDate())).size;
+    const workDays = new Set(weekWorked.map((b) => b.start.getDate())).size;
 
-    const todayNum = nowD.getFullYear() * 10000 + nowD.getMonth() * 100 + nowD.getDate();
-    let sollH = 0;
+    let saldoH = 0;
     for (let i = 0; i < 7; i++) {
       const dt = new Date(weekStart); dt.setDate(weekStart.getDate() + i);
-      const dayNum = dt.getFullYear() * 10000 + dt.getMonth() * 100 + dt.getDate();
-      if (dayNum <= todayNum) sollH += sollForWeekday(dt.getDay());
+      saldoH += daySaldoH(dt);
     }
-    const saldoH = totalMs / 3_600_000 - sollH;
 
     const lastDay = new Date(weekEnd); lastDay.setDate(weekEnd.getDate() - 1);
     $('month-label').textContent = `${fmtDay(weekStart)}–${fmtDay(lastDay)}`;
@@ -207,10 +227,9 @@ function renderOverview() {
     const nowD = new Date();
     const isToday = (d) => d.getFullYear() === nowD.getFullYear()
       && d.getMonth() === nowD.getMonth() && d.getDate() === nowD.getDate();
-    const todayBlocks = blocks.filter((b) => isToday(b.start));
-    const todayMs = todayBlocks.reduce((s, b) => s + (b.end - b.start), 0);
+    const todayMs = workedMsOn(nowD); // nur echte Arbeit (Abwesenheit ausgenommen)
     const pauseMs = pauses.filter((p) => isToday(p.start)).reduce((s, p) => s + (p.end - p.start), 0);
-    const saldoH = todayMs / 3_600_000 - sollForWeekday(nowD.getDay());
+    const saldoH = daySaldoH(nowD);
 
     state.todayPauseBaseMs = pauseMs;
     $('month-label').textContent = nowD.toLocaleDateString('de-DE',
@@ -222,22 +241,16 @@ function renderOverview() {
   } else {
     // ---------- Monatsansicht ----------
     const inMonth = (d) => d.getFullYear() === year && d.getMonth() === month;
-    const monthBlocks = blocks.filter((b) => inMonth(b.start));
-    const totalMs = monthBlocks.reduce((s, b) => s + (b.end - b.start), 0);
+    // Nur echte Arbeit zaehlt als "gearbeitet" (Abwesenheit ausgenommen)
+    const monthWorked = blocks.filter((b) => inMonth(b.start) && !window.isAbsenceBlock(b));
+    const totalMs = monthWorked.reduce((s, b) => s + (b.end - b.start), 0);
     const pauseMs = pauses.filter((p) => inMonth(p.start)).reduce((s, p) => s + (p.end - p.start), 0);
-    const workDays = new Set(monthBlocks.map((b) => b.start.getDate())).size;
+    const workDays = new Set(monthWorked.map((b) => b.start.getDate())).size;
 
-    // Soll bis heute im Monat
-    const nowD = new Date();
-    const todayNum = nowD.getFullYear() * 10000 + nowD.getMonth() * 100 + nowD.getDate();
+    // Saldo pro Tag summieren (Abwesenheit erfuellt Soll, kein Plus)
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    let sollH = 0;
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dt = new Date(year, month, d);
-      const dayNum = year * 10000 + month * 100 + d;
-      if (dayNum <= todayNum) sollH += sollForWeekday(dt.getDay());
-    }
-    const saldoH = totalMs / 3_600_000 - sollH;
+    let saldoH = 0;
+    for (let d = 1; d <= daysInMonth; d++) saldoH += daySaldoH(new Date(year, month, d));
 
     $('month-label').textContent = `${MONTHS[month]} ${year}`;
     box.innerHTML = stat('Gesamt', hoursDecimal(totalMs))

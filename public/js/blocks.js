@@ -19,6 +19,7 @@ window.computeBlocks = function (entries) {
         start: new Date(e.start_ts),
         end: new Date(e.end_ts),
         label: e.description || e.kind_label || e.project_name || '',
+        code: e.kind_code || '',
       });
     }
   }
@@ -30,7 +31,7 @@ window.computeBlocks = function (entries) {
   for (const p of punches) {
     if (p.punch_dir === 'kommen') open = p;
     else if (p.punch_dir === 'gehen' && open) {
-      presence.push({ start: new Date(open.start_ts), end: new Date(p.start_ts), label: open.description || 'Anwesend' });
+      presence.push({ start: new Date(open.start_ts), end: new Date(p.start_ts), label: open.description || 'Anwesend', code: '0010' });
       open = null;
     }
   }
@@ -48,9 +49,14 @@ window.computeBlocks = function (entries) {
       }
       segments = next;
     }
-    for (const seg of segments) if (seg.end > seg.start) blocks.push({ start: seg.start, end: seg.end, label: pr.label });
+    for (const seg of segments) if (seg.end > seg.start) blocks.push({ start: seg.start, end: seg.end, label: pr.label, code: pr.code });
   }
   return blocks;
+};
+
+// Ist ein Block eine Abwesenheit (Urlaub/Gleittag)? -> erfuellt das Soll, keine Plus-Stunden
+window.isAbsenceBlock = function (b) {
+  return typeof window.isAbsenceCode === 'function' && window.isAbsenceCode(b.code);
 };
 
 // Pausen eines Tages = Vereinigung aus

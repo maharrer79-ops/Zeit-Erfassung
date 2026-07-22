@@ -136,13 +136,24 @@ function render() {
     const dayNum = year * 10000 + month * 100 + d;
     const blocks = (blocksByDay.get(d) || []).sort((a, b) => a.start - b.start);
 
-    // Ist-Stunden des Tages (Summe der Bloecke)
-    const istMs = blocks.reduce((sum, b) => sum + (b.end - b.start), 0);
-    const ist = istMs / 3_600_000;
+    // Bloecke aufteilen: echte Anwesenheit (Arbeit) vs. Abwesenheit (Urlaub/Gleittag)
+    let workedMs = 0, absenceMs = 0;
+    for (const b of blocks) {
+      if (isAbsenceBlock(b)) absenceMs += (b.end - b.start);
+      else workedMs += (b.end - b.start);
+    }
+    const workedH = workedMs / 3_600_000;
+    const absenceH = absenceMs / 3_600_000;
 
-    // Soll nur an Werktagen und nur bis einschließlich heute; Freitag ggf. eigenes Soll
+    // Soll an Werktagen; auch fuer die Zukunft, wenn an dem Tag etwas gebucht ist
+    // (damit z.B. geplanter Urlaub das Soll erfuellt und nicht als Plus zaehlt).
     const sollForDay = wd === 5 ? state.sollFriday : state.soll;
-    const soll = (!isWeekend && dayNum <= todayNum) ? sollForDay : 0;
+    const hasBooking = blocks.length > 0;
+    const soll = (!isWeekend && (dayNum <= todayNum || hasBooking)) ? sollForDay : 0;
+
+    // Abwesenheit fuellt das Soll, erzeugt aber nie Plus-Stunden (auf Soll begrenzt)
+    const absenceCredit = Math.min(absenceH, soll);
+    const ist = workedH + absenceCredit;
     const saldo = ist - soll;
 
     const pauseMs = pauseByDay.get(d) || 0;

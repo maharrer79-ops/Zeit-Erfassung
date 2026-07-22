@@ -6,6 +6,8 @@
 //   pause  -> Pause (Zeitraum an einem Tag)
 //   range  -> mehrtaegige Absenz (Datumsbereich, Stunden/Tag), z.B. Urlaub
 //   top    -> haeufige Buchungsart (oben, vor der Trennlinie)
+//   absence-> Abwesenheit (Urlaub/Gleittag): erfuellt das Tages-Soll,
+//             erzeugt aber KEINE Plus-Stunden (keine Anwesenheit)
 
 window.PUNCH_DIR_BY_CODE = { kommen: 'kommen', gehen: 'gehen' };
 window.DEFAULT_KIND_CODE = 'session';
@@ -22,12 +24,12 @@ window.BOOKING_TYPES = [
   { code: '0800', label: 'Dienstreise', top: true },
   { code: '0810', label: 'Lenkzeit', top: true },
   { code: '9800', label: 'Passive Reisezeit', top: true },
-  { code: '0900', label: 'Gleittag', range: true, top: true },
-  { code: '0901', label: 'Gleittag Individuell', range: true, top: true },
-  { code: '0902', label: 'Gleittag Vorsorgekonto', range: true, top: true },
-  { code: '0100', label: 'Tarifurlaub', range: true, top: true },
+  { code: '0900', label: 'Gleittag', range: true, top: true, absence: true },
+  { code: '0901', label: 'Gleittag Individuell', range: true, top: true, absence: true },
+  { code: '0902', label: 'Gleittag Vorsorgekonto', range: true, top: true, absence: true },
+  { code: '0100', label: 'Tarifurlaub', range: true, top: true, absence: true },
   // Weitere Buchungsarten (unter der Trennlinie)
-  { code: '0105', label: 'Behindertenurlaub', range: true },
+  { code: '0105', label: 'Behindertenurlaub', range: true, absence: true },
   { code: '0405', label: 'Bereitschaft' },
   { code: '0412', label: 'Betriebsratsausbildung', range: true },
   { code: '0411', label: 'Betriebsratstätigkeit' },
@@ -56,6 +58,10 @@ window.KIND_COLORS = {
   '9800': { bg: '#e0f2fe', fg: '#075985' }, // Passive Reisezeit
   '9810': { bg: '#fce7f3', fg: '#9d174d' }, // Geschäftsessen
 };
+
+// Codes, die als Abwesenheit gelten (erfuellen das Soll, keine Plus-Stunden)
+window.ABSENCE_CODES = new Set(window.BOOKING_TYPES.filter((t) => t.absence).map((t) => t.code));
+window.isAbsenceCode = function (code) { return window.ABSENCE_CODES.has(code); };
 
 // Liefert ein farbiges Badge (HTML) fuer eine Buchungsart. label sollte bereits escaped sein.
 window.kindBadge = function (code, labelHtml) {
