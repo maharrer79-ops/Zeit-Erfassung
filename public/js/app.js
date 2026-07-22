@@ -18,6 +18,9 @@ const api = {
 
 let state = { entries: [], projects: [], running: null, pauseRunning: null, mobileRunning: null, tick: null, view: null, ovView: 'tag', todayPauseBaseMs: 0 };
 
+// Merkt, ob mobiles Arbeiten nach der aktuellen Pause automatisch fortgesetzt werden soll
+const RESUME_MOBILE_KEY = 'zeitwerk_resume_mobile';
+
 // ---------- Helpers ----------
 const $ = (id) => document.getElementById(id);
 
@@ -509,6 +512,7 @@ function bindEvents() {
 
   $('start-btn').addEventListener('click', async () => {
     try {
+      localStorage.removeItem(RESUME_MOBILE_KEY);
       await api.post('/api/entries/start');
       await Promise.all([loadRunning(), loadEntries()]);
       toast('Kommen gestempelt');
@@ -573,12 +577,26 @@ function bindEvents() {
   // Laufendes mobiles Arbeiten wird dabei automatisch beendet (mobiles Arbeiten – Gehen).
   $('pause-toggle').addEventListener('click', async () => {
     const wasRunning = !!state.pauseRunning;
-    const hadMobile = !wasRunning && !!state.mobileRunning;
     try {
-      // Server beendet ein laufendes mobiles Arbeiten beim Pause-Start automatisch
-      await api.post(wasRunning ? '/api/entries/pause/stop' : '/api/entries/pause/start');
-      await Promise.all([loadRunning(), loadEntries()]);
-      toast(wasRunning ? 'Pause beendet' : (hadMobile ? 'Mobiles Arbeiten beendet · Pause gestartet' : 'Pause gestartet'));
+      if (!wasRunning) {
+        // Pause starten. Lief mobiles Arbeiten? Dann fragen, ob es danach fortgesetzt werden soll.
+        const hadMobile = !!state.mobileRunning;
+        const resume = hadMobile && confirm('Möchtest du das mobile Arbeiten nach der Pause automatisch wieder starten?');
+        localStorage.setItem(RESUME_MOBILE_KEY, resume ? '1' : '');
+        await api.post('/api/entries/pause/start'); // beendet ein laufendes mobiles Arbeiten serverseitig
+        await Promise.all([loadRunning(), loadEntries()]);
+        toast(hadMobile
+          ? (resume ? 'Pause gestartet · mobiles Arbeiten wird danach fortgesetzt' : 'Mobiles Arbeiten beendet · Pause gestartet')
+          : 'Pause gestartet');
+      } else {
+        // Pause beenden – ggf. mobiles Arbeiten automatisch fortsetzen
+        await api.post('/api/entries/pause/stop');
+        const resume = localStorage.getItem(RESUME_MOBILE_KEY) === '1';
+        localStorage.removeItem(RESUME_MOBILE_KEY);
+        if (resume) await api.post('/api/entries/mobile/start');
+        await Promise.all([loadRunning(), loadEntries()]);
+        toast(resume ? 'Pause beendet · mobiles Arbeiten fortgesetzt' : 'Pause beendet');
+      }
     } catch (e) { toast(e.message, true); }
   });
 
@@ -586,6 +604,7 @@ function bindEvents() {
   $('mobile-toggle').addEventListener('click', async () => {
     const wasRunning = !!state.mobileRunning;
     try {
+      localStorage.removeItem(RESUME_MOBILE_KEY); // manuelles Stempeln hebt eine geplante Auto-Fortsetzung auf
       // Laufende Pause beim Beenden des mobilen Arbeitens sauber schliessen
       if (wasRunning && state.pauseRunning) await api.post('/api/entries/pause/stop');
       await api.post(wasRunning ? '/api/entries/mobile/stop' : '/api/entries/mobile/start');
