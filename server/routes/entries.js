@@ -190,8 +190,8 @@ router.post('/start', (req, res) => {
   if (openMobile(req.user.id)) {
     return res.status(409).json({ error: 'Mobiles Arbeiten läuft – bitte zuerst beenden' });
   }
-  // Live-Stempel auf ganze Minuten runden (keine Sekunden)
-  const entry = insertPunch(req.user.id, 'kommen', nowRoundedMinuteISO());
+  // Kommen: exakte Uhrzeit inkl. Sekunden (nur mobiles Arbeiten wird gerundet)
+  const entry = insertPunch(req.user.id, 'kommen', new Date().toISOString());
   res.status(201).json({ entry });
 });
 
@@ -200,7 +200,7 @@ router.post('/stop', (req, res) => {
   const open = currentOpen(req.user.id);
   if (!open) return res.status(404).json({ error: 'Du bist nicht eingestempelt' });
 
-  const iso = nowRoundedMinuteISO(); // Live-Stempel auf ganze Minuten runden
+  const iso = new Date().toISOString(); // Gehen: exakte Uhrzeit inkl. Sekunden
   // Alten laufenden Intervall-Eintrag noch sauber schliessen
   if (open.type === 'interval') {
     db.prepare('UPDATE entries SET end_ts = ? WHERE id = ?').run(iso, open.row.id);
